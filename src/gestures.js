@@ -311,7 +311,7 @@ function processFace(results) {
     if (performance.now() - headState.lostTime > 500) {
       headState.calibrated = false;
     }
-    if (cbHeadLook) cbHeadLook(0, 0);
+    if (cbHeadLook) cbHeadLook(0, 0, 0);
     return;
   }
   // When face detected, clear lost timer:
@@ -352,7 +352,12 @@ function processFace(results) {
   const yaw = clamp((headState.baseX - headState.sx) * HEAD_YAW_SCALE, -1, 1);
   const pitch = clamp((headState.sy - headState.baseY) * HEAD_PITCH_SCALE, -1, 1);
 
-  if (cbHeadLook) cbHeadLook(yaw, pitch);
+  // Head tilt (roll) — angle between the two eyes
+  const eyeDx = re.x - le.x;
+  const eyeDy = re.y - le.y;
+  const roll = Math.atan2(eyeDy, eyeDx); // radians, 0 = level
+
+  if (cbHeadLook) cbHeadLook(yaw, pitch, roll);
 }
 
 // ── Webcam Overlay ──────────────────────────────────────────

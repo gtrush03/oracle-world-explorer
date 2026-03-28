@@ -320,8 +320,8 @@ function updateHandIn3D(idx, landmarks) {
 // Head DIRECTLY maps to view angle — realtime POV matching
 // No accumulation, no velocity. Head position = camera angle.
 
-let headYaw = 0, headPitch = 0, handPull = 0;
-let sYaw = 0, sPitch = 0, sPull = 0;
+let headYaw = 0, headPitch = 0, headRoll = 0, handPull = 0;
+let sYaw = 0, sPitch = 0, sRoll = 0, sPull = 0;
 
 // Head parallax offset — applied during render, removed after
 let headOffX = 0, headOffY = 0;
@@ -335,9 +335,10 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  // Smooth follow — 0.15 = responsive without sudden jumps
+  // Smooth follow
   sYaw += (headYaw - sYaw) * 0.15;
   sPitch += (headPitch - sPitch) * 0.15;
+  sRoll += (headRoll - sRoll) * 0.12;
   sPull += (handPull - sPull) * 0.12;
 
   // Dead zone
@@ -448,12 +449,18 @@ function animate() {
     }
   }
   updateWeb();
-  // Apply head parallax offset for render only (doesn't affect controls base)
+  // Apply head tracking for render only — position + tilt
   camera.position.x += headOffX;
   camera.position.y += headOffY;
+  const savedRotX = camera.rotation.x;
+  const savedRotZ = camera.rotation.z;
+  camera.rotation.x += sPitch * 0.15;  // head up/down = camera tilts up/down
+  camera.rotation.z = -sRoll * 0.6;    // head tilt = camera rolls
   renderer.render(scene, camera);
   camera.position.x -= headOffX;
   camera.position.y -= headOffY;
+  camera.rotation.x = savedRotX;
+  camera.rotation.z = savedRotZ;
 }
 animate();
 
@@ -473,7 +480,7 @@ function nextWorld() { worldIdx = (worldIdx + 1) % worldNames.length; switchWorl
 function showToast(t) { const el = document.getElementById('toast'); if (!el) return; el.textContent = t; el.classList.add('v'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('v'), 1200); }
 
 initGestures({
-  onHeadLook: (yaw, pitch) => { headYaw = yaw; headPitch = pitch; },
+  onHeadLook: (yaw, pitch, roll) => { headYaw = yaw; headPitch = pitch; headRoll = roll || 0; },
   onRightHand: (pull) => { handPull = pull; },
   onLeftHand: () => {},
   onFist: nextWorld,
