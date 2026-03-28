@@ -301,9 +301,9 @@ function updateHandIn3D(idx, landmarks) {
     const fovScale = camera.fov / 75; // normalize to base FOV
     const wx = -(lm.x - 0.5) * 0.5 * fovScale;
     const wy = -(lm.y - 0.5) * 0.4 * fovScale;
-    const p = new THREE.Vector3(wx, wy, -1.0);
-    p.applyMatrix4(camera.matrixWorld);
-    joints[i].position.copy(p);
+    _tmpVec.set(wx, wy, -1.0);
+    _tmpVec.applyMatrix4(camera.matrixWorld);
+    joints[i].position.copy(_tmpVec);
     joints[i].visible = true;
   }
   const pos = lines.geometry.attributes.position.array;
@@ -323,8 +323,8 @@ function updateHandIn3D(idx, landmarks) {
 let headYaw = 0, headPitch = 0, headRoll = 0, handPull = 0, leftHandX = 0;
 let sYaw = 0, sPitch = 0, sRoll = 0, sPull = 0, sLeftX = 0;
 
-// Head parallax offset — applied during render, removed after
-let headOffX = 0, headOffY = 0;
+let frameCount = 0;
+const _tmpVec = new THREE.Vector3();
 
 function canMove(origin, direction, distance) {
   if (!colliderLoaded || colliderMeshes.length === 0) return true;
@@ -335,51 +335,25 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  // Smooth follow
   sYaw += (headYaw - sYaw) * 0.15;
   sPitch += (headPitch - sPitch) * 0.15;
   sRoll += (headRoll - sRoll) * 0.12;
   sPull += (handPull - sPull) * 0.12;
   sLeftX += (leftHandX - sLeftX) * 0.1;
 
-  // Dead zone
   if (Math.abs(sYaw) < 0.02) sYaw = 0;
   if (Math.abs(sPitch) < 0.02) sPitch = 0;
   if (Math.abs(sLeftX) < 0.05) sLeftX = 0;
 
-  // LEFT HAND → orbit rotation (drag to look around)
+  // LEFT HAND → orbit rotation
   if (Math.abs(sLeftX) > 0.05) {
     controls.autoRotate = true;
-    controls.autoRotateSpeed = sLeftX * 8;
+    controls.autoRotateSpeed = sLeftX * 6;
   } else {
     controls.autoRotate = false;
   }
 
-  // HEAD = small parallax offset (NOT rotation, NOT orbit)
-  // Just shift the camera position slightly based on head, like looking through a window
-  // Clamped to small range so it can't do 360 or get stuck
-  // Head controls orbit angle DIRECTLY — no position shift, just rotation
-  // This makes head tracking feel like real POV — look left, view rotates left
-  controls.autoRotate = false;
-
-  // Apply head yaw as orbit rotation offset
-  if (Math.abs(sYaw) > 0.02) {
-    const az = controls.getAzimuthalAngle();
-    const dist = camera.position.distanceTo(controls.target);
-    const po = controls.getPolarAngle();
-    const newAz = az - sYaw * 0.04; // small per-frame rotation for smooth feel
-    const ct = controls.target;
-    camera.position.set(
-      ct.x + dist * Math.sin(po) * Math.sin(newAz),
-      ct.y + dist * Math.cos(po),
-      ct.z + dist * Math.sin(po) * Math.cos(newAz)
-    );
-  }
-
-  headOffX = 0;  // no position shift from head
-  headOffY = 0;
-
-  // HAND → walk
+  // HAND → walk forward/backward
   if (Math.abs(sPull) > 0.03 && !flyAnim) {
     const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position);
     lookDir.y = 0;
@@ -387,7 +361,6 @@ function applyGestures(dt) {
     const walkSpeed = sPull * dt * 4.0;
     const moveDir = lookDir.clone();
     if (walkSpeed < 0) moveDir.negate();
-
     if (canMove(camera.position, moveDir, Math.abs(walkSpeed))) {
       const move = lookDir.multiplyScalar(walkSpeed);
       camera.position.add(move);
@@ -445,21 +418,18 @@ function animate() {
   requestAnimationFrame(animate);
   applyGestures(Math.min(Math.max(clock.getDelta(), 0.005), 0.05));
   tickFly();
-  // Floor clamp BEFORE controls to prevent temporary clipping
-  if (currentWorldName && WORLDS[currentWorldName]) {
-    const floorY = WORLDS[currentWorldName].camY;
-    if (camera.position.y < floorY) camera.position.y = floorY;
-    if (controls.target.y < floorY) controls.target.y = floorY;
-  }
   controls.update();
+
   // Floor clamp
   if (currentWorldName && WORLDS[currentWorldName]) {
     const floorY = WORLDS[currentWorldName].camY - 0.4;
     if (camera.position.y < floorY) camera.position.y = floorY;
     if (controls.target.y < floorY) controls.target.y = floorY;
   }
-  // Push away from walls (4 directions)
-  if (colliderLoaded && colliderMeshes.length > 0 && !flyAnim) {
+
+  // Wall push-back (only every 10 frames for performance)
+  frameCount++;
+  if (colliderLoaded && colliderMeshes.length > 0 && !flyAnim && frameCount % 10 === 0) {
     const wallDist = 0.3;
     const dirs = [
       new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
@@ -476,17 +446,15 @@ function animate() {
       }
     }
   }
+
   updateWeb();
-  // Apply head tracking for render only — position + tilt
-  camera.position.x += headOffX;
-  camera.position.y += headOffY;
+
+  // HEAD TRACKING — render-time rotation only (no position changes)
   const savedRotX = camera.rotation.x;
   const savedRotZ = camera.rotation.z;
-  camera.rotation.x -= sPitch * 0.12;  // look up = camera tilts up (reversed)
-  camera.rotation.z = -sRoll * 0.15;   // minimal roll for realism
+  camera.rotation.x -= sPitch * 0.1;
+  camera.rotation.z = -sRoll * 0.12;
   renderer.render(scene, camera);
-  camera.position.x -= headOffX;
-  camera.position.y -= headOffY;
   camera.rotation.x = savedRotX;
   camera.rotation.z = savedRotZ;
 }
@@ -562,6 +530,12 @@ initGestures({
   onHandsUpdate: (states) => {
     updateHandIn3D(0, states[0].landmarks);
     updateHandIn3D(1, states[1].landmarks);
+    if (!states[0].landmarks && webActive && webHandIdx === 0) {
+      webActive = false;
+      webMainLine.visible = false;
+      webStrands.forEach(s => s.visible = false);
+      pointerDot.visible = false;
+    }
     if (!states[0].landmarks) handPull = 0;
     if (!states[1].landmarks) leftHandX = 0;
     const el = document.getElementById('gesture-label');

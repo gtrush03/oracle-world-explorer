@@ -120,6 +120,9 @@ function processHands(results) {
     handStates[0].gestureLabel = '';
     handStates[1].gestureLabel = '';
     handStates[0].fistPending = false;
+    // Fire release callbacks if gestures were active
+    if (handStates[0].spiderManActive && cbSpiderMan) cbSpiderMan(0, false);
+    if (handStates[1].spiderManActive && cbSpiderMan) cbSpiderMan(1, false);
     handStates[0].spiderManActive = false;
     handStates[0].spiderManStart = 0;
     handStates[1].palmDownActive = false;
@@ -218,17 +221,17 @@ function processRightHand(lm, s, now) {
     s.fistPending = false;
   }
 
-  // Spider-Man pose: index + pinky up, middle + ring down (loose thresholds)
-  const isSpiderMan =
-    lm[8].y < wristY &&    // index above wrist
-    lm[20].y < wristY &&   // pinky above wrist
-    lm[12].y > wristY &&   // middle below wrist
-    lm[16].y > wristY;     // ring below wrist
+  // Spider-Man pose: index + pinky up, middle + ring down (forgiving thresholds)
+  const isSpiderMan = !isFist &&
+    lm[8].y < wristY + 0.02 &&    // index roughly above wrist (forgiving)
+    lm[20].y < wristY + 0.02 &&   // pinky roughly above wrist
+    lm[12].y > wristY - 0.02 &&   // middle roughly below wrist
+    lm[16].y > wristY - 0.02;     // ring roughly below wrist
 
   if (isSpiderMan && !s.spiderManActive) {
     if (!s.spiderManStart) s.spiderManStart = now;
     // Show charging circle while holding (100ms hold)
-    const holdProgress = Math.min((now - s.spiderManStart) / 100, 1.0);
+    const holdProgress = Math.min((now - s.spiderManStart) / 50, 1.0);
     s.gestureLabel = holdProgress < 1 ? 'CHARGING...' : 'WEB!';
     if (holdProgress >= 1.0) {
       s.spiderManActive = true;
