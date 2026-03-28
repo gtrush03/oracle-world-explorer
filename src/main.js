@@ -358,8 +358,26 @@ function applyGestures(dt) {
   // HEAD = small parallax offset (NOT rotation, NOT orbit)
   // Just shift the camera position slightly based on head, like looking through a window
   // Clamped to small range so it can't do 360 or get stuck
-  headOffX = sYaw * 0.4;   // max ±0.4 units sideways
-  headOffY = sPitch * 0.3;  // max ±0.3 units vertical
+  // Head controls orbit angle DIRECTLY — no position shift, just rotation
+  // This makes head tracking feel like real POV — look left, view rotates left
+  controls.autoRotate = false;
+
+  // Apply head yaw as orbit rotation offset
+  if (Math.abs(sYaw) > 0.02) {
+    const az = controls.getAzimuthalAngle();
+    const dist = camera.position.distanceTo(controls.target);
+    const po = controls.getPolarAngle();
+    const newAz = az - sYaw * 0.04; // small per-frame rotation for smooth feel
+    const ct = controls.target;
+    camera.position.set(
+      ct.x + dist * Math.sin(po) * Math.sin(newAz),
+      ct.y + dist * Math.cos(po),
+      ct.z + dist * Math.sin(po) * Math.cos(newAz)
+    );
+  }
+
+  headOffX = 0;  // no position shift from head
+  headOffY = 0;
 
   // HAND → walk
   if (Math.abs(sPull) > 0.03 && !flyAnim) {
@@ -549,8 +567,9 @@ initGestures({
     const el = document.getElementById('gesture-label');
     if (!el) return;
     const p = [];
-    if (Math.abs(headYaw) > 0.02) p.push('LOOKING');
-    if (states[0].landmarks) p.push(states[0].gestureLabel);
+    if (Math.abs(sYaw) > 0.02) p.push('HEAD');
+    if (states[0].landmarks) p.push('R: ' + (states[0].gestureLabel || 'OPEN'));
+    if (states[1].landmarks) p.push('L: ' + (states[1].gestureLabel || 'OPEN'));
     el.textContent = p.join(' · ');
     el.style.opacity = p.length ? '1' : '0';
   },
