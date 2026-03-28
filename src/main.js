@@ -43,8 +43,13 @@ renderer.domElement.addEventListener('wheel', (e) => {
   _scrollDir.subVectors(controls.target, camera.position);
   _scrollDir.y = 0;
   _scrollDir.normalize().multiplyScalar(-e.deltaY * 0.003);
-  camera.position.add(_scrollDir);
-  controls.target.add(_scrollDir);
+  const moveDist = _scrollDir.length();
+  if (moveDist < 0.0001) return;
+  const moveDir = _scrollDir.clone().normalize();
+  if (canMove(camera.position, moveDir, moveDist)) {
+    camera.position.add(_scrollDir);
+    controls.target.add(_scrollDir);
+  }
 }, { passive: false });
 
 // ── Collider for Raycasting ──────────────────────────────────
@@ -72,6 +77,7 @@ function loadCollider(url) {
       }
     });
     scene.add(collider);
+    collider.updateMatrixWorld(true);
     colliderLoaded = true;
     console.log('[Oracle] Collider loaded:', colliderMeshes.length, 'meshes');
   });
@@ -337,6 +343,12 @@ let sYaw = 0, sPitch = 0, sRoll = 0, sPull = 0, sLeftX = 0;
 let frameCount = 0;
 const _tmpVec = new THREE.Vector3();
 
+// Head tracking quaternion helpers (reused each frame, no allocations)
+const _worldUp = new THREE.Vector3(0, 1, 0);
+const _localRight = new THREE.Vector3(1, 0, 0);
+const _headYawQuat = new THREE.Quaternion();
+const _headPitchQuat = new THREE.Quaternion();
+
 function canMove(origin, direction, distance) {
   if (!colliderLoaded || colliderMeshes.length === 0) return true;
   raycaster.set(origin, direction.clone().normalize());
@@ -356,19 +368,8 @@ function applyGestures(dt) {
   if (Math.abs(sPitch) < 0.02) sPitch = 0;
   if (Math.abs(sLeftX) < 0.05) sLeftX = 0;
 
-  // HEAD → inject rotation into OrbitControls' own delta system
-  // This is VR-style: look left = see what's to your left
-  if (Math.abs(sYaw) > 0.02) {
-    controls._sphericalDelta.theta += sYaw * 0.03;
-  }
-  if (Math.abs(sPitch) > 0.02) {
-    controls._sphericalDelta.phi -= sPitch * 0.02;
-  }
-
-  // LEFT HAND → orbit rotation
-  if (Math.abs(sLeftX) > 0.05) {
-    controls._sphericalDelta.theta += sLeftX * 0.04;
-  }
+  // HEAD tracking is now applied AFTER controls.update() in animate()
+  // as a quaternion rotation — no position movement, just view direction.
 
   // RIGHT HAND → walk forward/backward
   if (Math.abs(sPull) > 0.03 && !flyAnim) {
@@ -419,8 +420,6 @@ function tickFly() {
   camera.updateProjectionMatrix();
 
   if (t >= 1.0) {
-    baseAzimuth = controls.getAzimuthalAngle();
-    basePolar = controls.getPolarAngle();
     flyAnim = null;
     // Reset FOV
     camera.fov = 75;
@@ -436,6 +435,16 @@ function animate() {
   applyGestures(Math.min(Math.max(clock.getDelta(), 0.005), 0.05));
   tickFly();
   controls.update();
+
+  // HEAD TRACKING — VR-style view rotation (camera position stays FIXED)
+  // Applied AFTER controls.update() so it doesn't fight OrbitControls.
+  // Yaw in world space (around Y), pitch in camera-local space (around X).
+  if (Math.abs(sYaw) > 0.005 || Math.abs(sPitch) > 0.005) {
+    _headYawQuat.setFromAxisAngle(_worldUp, -sYaw * 1.0);
+    camera.quaternion.premultiply(_headYawQuat);
+    _headPitchQuat.setFromAxisAngle(_localRight, -sPitch * 0.6);
+    camera.quaternion.multiply(_headPitchQuat);
+  }
 
   // Floor clamp
   if (currentWorldName && WORLDS[currentWorldName]) {
@@ -544,7 +553,7 @@ initGestures({
   onHandsUpdate: (states) => {
     updateHandIn3D(0, states[0].landmarks);
     updateHandIn3D(1, states[1].landmarks);
-    if (!states[0].landmarks && webActive && webHandIdx === 0) {
+    if (!states[1].landmarks && webActive && webHandIdx === 1) {
       webActive = false;
       webMainLine.visible = false;
       webStrands.forEach(s => s.visible = false);

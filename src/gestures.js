@@ -63,6 +63,9 @@ const handStates = [
     palmCooldown: 0,
     spiderManActive: false,
     spiderManStart: 0,
+    fistPending: false,
+    fistStart: 0,
+    fistCooldown: 0,
   },
 ];
 
@@ -120,6 +123,7 @@ function processHands(results) {
     handStates[0].gestureLabel = '';
     handStates[1].gestureLabel = '';
     handStates[0].fistPending = false;
+    handStates[1].fistPending = false;
     // Fire release callbacks if gestures were active
     if (handStates[0].spiderManActive && cbSpiderMan) cbSpiderMan(0, false);
     if (handStates[1].spiderManActive && cbSpiderMan) cbSpiderMan(1, false);
@@ -152,7 +156,11 @@ function processHands(results) {
     handStates[other].landmarks = null;
     handStates[other].gestureLabel = '';
     if (other === 0) handStates[0].fistPending = false;
-    if (other === 1) handStates[1].palmDownActive = false;
+    if (other === 1) { handStates[1].palmDownActive = false; handStates[1].fistPending = false; }
+    // Release spider-man if the hand that had it disappears
+    if (handStates[other].spiderManActive && cbSpiderMan) cbSpiderMan(other, false);
+    handStates[other].spiderManActive = false;
+    handStates[other].spiderManStart = 0;
   } else {
     // Two hands: use X position to determine which is left/right
     const [a, b] = hands[0][0].x < hands[1][0].x ? [0, 1] : [1, 0];
@@ -221,6 +229,39 @@ function processRightHand(lm, s, now) {
     s.fistPending = false;
   }
 
+  // Spider-Man moved to LEFT hand — right hand is walk + fist only
+}
+
+function processLeftHand(lm, s, now) {
+  // Pan: map smoothed position to -1..+1
+  const px = (1 - s.sx - 0.5) * 2.0; // mirror + center
+  const py = (s.sy - 0.5) * 2.0;
+
+  if (cbLeftHand) cbLeftHand(clamp(px, -1, 1), clamp(py, -1, 1));
+  s.gestureLabel = 'READY';
+
+  // Fist detection: all fingertips below wrist Y
+  const wristY = lm[0].y;
+  const isFist = [8, 12, 16, 20].every(i => lm[i].y > wristY);
+
+  if (isFist) {
+    if (!s.fistPending) {
+      s.fistPending = true;
+      s.fistStart = now;
+    }
+    if (
+      s.fistPending &&
+      now - s.fistStart >= FIST_HOLD_MS &&
+      now - s.fistCooldown > FIST_COOLDOWN_MS
+    ) {
+      s.fistCooldown = now;
+      s.gestureLabel = 'SWITCH!';
+      if (cbFist) cbFist();
+    }
+  } else {
+    s.fistPending = false;
+  }
+
   // Spider-Man pose: index + pinky up, middle + ring down (forgiving thresholds)
   const isSpiderMan = !isFist &&
     lm[8].y < wristY + 0.02 &&    // index roughly above wrist (forgiving)
@@ -230,53 +271,38 @@ function processRightHand(lm, s, now) {
 
   if (isSpiderMan && !s.spiderManActive) {
     if (!s.spiderManStart) s.spiderManStart = now;
-    // Show charging circle while holding (100ms hold)
     const holdProgress = Math.min((now - s.spiderManStart) / 50, 1.0);
     s.gestureLabel = holdProgress < 1 ? 'CHARGING...' : 'WEB!';
     if (holdProgress >= 1.0) {
       s.spiderManActive = true;
-      if (cbSpiderMan) cbSpiderMan(0, true);
+      if (cbSpiderMan) cbSpiderMan(1, true);  // handIdx = 1 (left)
     }
   } else if (!isSpiderMan) {
     s.spiderManStart = 0;
     if (s.spiderManActive) {
       s.spiderManActive = false;
       s.gestureLabel = '';
-      if (cbSpiderMan) cbSpiderMan(0, false);
+      if (cbSpiderMan) cbSpiderMan(1, false);  // handIdx = 1 (left)
     }
   }
 
   if (s.spiderManActive) s.gestureLabel = 'WEB!';
-}
 
-function processLeftHand(lm, s, now) {
-  // Pan: map smoothed position to -1..+1
-  const px = (1 - s.sx - 0.5) * 2.0; // mirror + center
-  const py = (s.sy - 0.5) * 2.0;
-
-  if (cbLeftHand) cbLeftHand(clamp(px, -1, 1), clamp(py, -1, 1));
-  s.gestureLabel = 'PAN';
-
-  // Palm flat detection: wrist Y close to MCP Y (landmark 9)
-  const yDelta = Math.abs(lm[0].y - lm[9].y);
-
-  if (yDelta < PALM_FLAT_THRESH && !s.palmDownActive) {
-    s.palmDownActive = true;
-    if (now - s.palmCooldown > PALM_COOLDOWN_MS) {
-      s.palmCooldown = now;
-      s.gestureLabel = 'WAYPOINT!';
-      if (cbPalmDown) cbPalmDown();
+  // Palm flat detection (only when not fist or spider-man)
+  if (!isFist && !s.spiderManActive) {
+    const yDelta = Math.abs(lm[0].y - lm[9].y);
+    if (yDelta < PALM_FLAT_THRESH && !s.palmDownActive) {
+      s.palmDownActive = true;
+      if (now - s.palmCooldown > PALM_COOLDOWN_MS) {
+        s.palmCooldown = now;
+        s.gestureLabel = 'WAYPOINT!';
+        if (cbPalmDown) cbPalmDown();
+      }
+    } else if (yDelta > PALM_RELEASE_THRESH && s.palmDownActive) {
+      s.palmDownActive = false;
     }
-  } else if (yDelta > PALM_RELEASE_THRESH && s.palmDownActive) {
-    s.palmDownActive = false;
+    if (s.palmDownActive) s.gestureLabel = 'WAYPOINT';
   }
-
-  if (s.palmDownActive) {
-    s.gestureLabel = 'WAYPOINT';
-  }
-
-  // Left hand: NO spider-man. Instead, X position = orbit rotation
-  // Already handled by cbLeftHand(px, py) above
 }
 
 // ── Face Processing ─────────────────────────────────────────
