@@ -180,8 +180,8 @@ createHandMeshes(1);
 // ── Spider-Man Web ───────────────────────────────────────────
 
 // Pointer dot — glowing sphere showing where web will land
-const pointerGeo = new THREE.SphereGeometry(0.08, 16, 16);
-const pointerMat = new THREE.MeshBasicMaterial({ color: 0xff2222, transparent: true, opacity: 1.0 });
+const pointerGeo = new THREE.SphereGeometry(0.03, 12, 12);
+const pointerMat = new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.8 });
 const pointerDot = new THREE.Mesh(pointerGeo, pointerMat);
 pointerDot.visible = false;
 scene.add(pointerDot);
@@ -238,7 +238,7 @@ function updateWeb() {
   if (hits.length > 0) {
     webPointerTarget.copy(hits[0].point);
   } else {
-    webPointerTarget.copy(camera.position).addScaledVector(dir, 15.0);
+    webPointerTarget.copy(camera.position).addScaledVector(dir, 4.0); // shorter range
   }
 
   // Shoot animation — web extends from hand to target over WEB_SHOOT_DURATION
@@ -317,15 +317,13 @@ function updateHandIn3D(idx, landmarks) {
 }
 
 // ── Head + Hand → Camera ─────────────────────────────────────
-// Head DIRECTLY sets the view angle (position-based, not velocity)
-// Right hand: up = walk forward, down = walk backward
+// Head DIRECTLY maps to view angle — realtime POV matching
+// No accumulation, no velocity. Head position = camera angle.
 
 let headYaw = 0, headPitch = 0, handPull = 0;
 let sYaw = 0, sPitch = 0, sPull = 0;
 
-let baseAzimuth = 0;
-let basePolar = Math.PI / 2;
-let headActive = false;
+// OrbitControls sets base angle via mouse drag, head adds offset on top
 
 function canMove(origin, direction, distance) {
   if (!colliderLoaded || colliderMeshes.length === 0) return true;
@@ -336,32 +334,31 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  // Smooth inputs
-  sYaw += (headYaw - sYaw) * 0.1;
-  sPitch += (headPitch - sPitch) * 0.1;
-  sPull += (handPull - sPull) * 0.1;
+  // Fast smooth — 0.3 = near-realtime follow
+  sYaw += (headYaw - sYaw) * 0.3;
+  sPitch += (headPitch - sPitch) * 0.3;
+  sPull += (handPull - sPull) * 0.12;
 
-  // Kill tiny values — prevents drift from noise
-  if (Math.abs(sYaw) < 0.05) sYaw = 0;
-  if (Math.abs(sPitch) < 0.05) sPitch = 0;
+  // Dead zone — snap tiny values to zero
+  if (Math.abs(sYaw) < 0.03) sYaw = 0;
+  if (Math.abs(sPitch) < 0.03) sPitch = 0;
 
-  // HEAD → accumulate yaw ONLY above strong threshold
-  if (Math.abs(sYaw) > 0.3) {
-    baseAzimuth -= sYaw * dt * 1.0;
-  }
-  // Pitch — tilt view gently, don't accumulate (position-based)
-  const targetPolar = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle,
-    Math.PI / 2 + sPitch * 0.4));
+  // HEAD = DIRECT angle offset on top of OrbitControls' current angle
+  const baseAz = controls.getAzimuthalAngle();
+  const basePo = controls.getPolarAngle();
+  const finalAzimuth = baseAz - sYaw * 1.0;
+  const finalPolar = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle,
+    basePo + sPitch * 0.5));
 
   const dist = camera.position.distanceTo(controls.target);
   const ct = controls.target;
   camera.position.set(
-    ct.x + dist * Math.sin(targetPolar) * Math.sin(baseAzimuth),
-    ct.y + dist * Math.cos(targetPolar),
-    ct.z + dist * Math.sin(targetPolar) * Math.cos(baseAzimuth)
+    ct.x + dist * Math.sin(finalPolar) * Math.sin(finalAzimuth),
+    ct.y + dist * Math.cos(finalPolar),
+    ct.z + dist * Math.sin(finalPolar) * Math.cos(finalAzimuth)
   );
 
-  // HAND → walk forward/backward (move both camera + target along look direction)
+  // HAND → walk
   if (Math.abs(sPull) > 0.03 && !flyAnim) {
     const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position);
     lookDir.y = 0;
