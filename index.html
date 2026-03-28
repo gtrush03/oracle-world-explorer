@@ -263,6 +263,7 @@
     }
     #cam-overlay {
       position: fixed;
+      top: auto !important;  /* Override blanket canvas rule */
       bottom: 60px;
       left: 16px;
       width: 280px;
@@ -296,7 +297,7 @@
 
     /* ── Cam HUD ── */
     #cam-hud {
-      position: fixed; bottom: 60px; left: 16px;
+      position: fixed; top: auto !important; bottom: 60px; left: 16px;
       width: 280px; height: 210px; z-index: 17;
       pointer-events: none; border-radius: 8px; display: none;
     }

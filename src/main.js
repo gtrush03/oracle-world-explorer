@@ -54,7 +54,8 @@ function loadCollider(url) {
     collider.traverse((child) => {
       if (child.isMesh) {
         child.material = new THREE.MeshBasicMaterial({
-          transparent: true, opacity: 0, depthWrite: false, colorWrite: false
+          transparent: true, opacity: 0, depthWrite: false, colorWrite: false,
+          side: THREE.DoubleSide
         });
         colliderMeshes.push(child);
       }
@@ -70,7 +71,7 @@ function loadCollider(url) {
 const WORLDS = {
   manhattan: {
     url: 'https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/a9ceecb6-54d7-482b-9404-a9d3dd62a470_ceramic_500k.spz',
-    camY: -0.6, sky: 0x87CEEB, label: 'Manhattan Fifth Ave (HQ)',
+    camY: 0, sky: 0x87CEEB, label: 'Manhattan Fifth Ave (HQ)',
     collider: 'https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/cd554cce.glb',
   },
   temple: {
@@ -307,6 +308,14 @@ let baseAzimuth = 0;
 let basePolar = Math.PI / 2;
 let headActive = false;
 
+function canMove(origin, direction, distance) {
+  if (!colliderLoaded || colliderMeshes.length === 0) return true;
+  raycaster.set(origin, direction.clone().normalize());
+  raycaster.far = distance + 0.3;
+  const hits = raycaster.intersectObjects(colliderMeshes, false);
+  return !(hits.length > 0 && hits[0].distance < distance + 0.3);
+}
+
 function applyGestures(dt) {
   // Smooth — 0.15 = responsive without jitter
   sYaw += (headYaw - sYaw) * 0.15;
@@ -340,28 +349,18 @@ function applyGestures(dt) {
   }
 
   // HAND → walk forward/backward (move both camera + target along look direction)
-  if (Math.abs(sPull) > 0.03) {
-    // Get the horizontal look direction (camera → target, Y zeroed)
-    const lookDir = new THREE.Vector3();
-    lookDir.subVectors(controls.target, camera.position);
+  if (Math.abs(sPull) > 0.03 && !flyAnim) {
+    const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position);
     lookDir.y = 0;
     lookDir.normalize();
-
     const walkSpeed = sPull * dt * 4.0;
-    const move = lookDir.multiplyScalar(walkSpeed);
+    const moveDir = lookDir.clone();
+    if (walkSpeed < 0) moveDir.negate();
 
-    // Move both camera and target together (walking, not zooming)
-    camera.position.add(move);
-    controls.target.add(move);
-
-    // Prevent going below floor — only during walking, NOT during web swing
-    if (!flyAnim) {
-      const world = WORLDS[currentWorldName];
-      if (world) {
-        const floorY = world.camY - 0.5;
-        if (camera.position.y < floorY) camera.position.y = floorY;
-        if (controls.target.y < floorY) controls.target.y = floorY;
-      }
+    if (canMove(camera.position, moveDir, Math.abs(walkSpeed))) {
+      const move = lookDir.multiplyScalar(walkSpeed);
+      camera.position.add(move);
+      controls.target.add(move);
     }
   }
 }
@@ -416,6 +415,12 @@ function animate() {
   applyGestures(clock.getDelta());
   tickFly();
   controls.update();
+  // Global floor clamp — catches ALL sources of below-floor movement
+  if (currentWorldName && WORLDS[currentWorldName]) {
+    const floorY = WORLDS[currentWorldName].camY;
+    if (camera.position.y < floorY) camera.position.y = floorY;
+    if (controls.target.y < floorY) controls.target.y = floorY;
+  }
   updateWeb();
   renderer.render(scene, camera);
 }
@@ -459,6 +464,10 @@ initGestures({
       // Offset slightly back from the surface so you don't clip into the building
       const dir = new THREE.Vector3().subVectors(camera.position, target).normalize();
       target.addScaledVector(dir, 0.3);
+
+      // Clamp web teleport target above floor
+      const floorY = WORLDS[currentWorldName]?.camY || 0;
+      if (target.y < floorY) target.y = floorY;
 
       // Look direction = forward from new position (maintain current look direction roughly)
       const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position).normalize();
