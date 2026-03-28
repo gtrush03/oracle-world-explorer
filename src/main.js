@@ -9,7 +9,7 @@ import { initGestures, startCamera, stopCamera, isGesturesActive, recalibrateHea
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
@@ -25,7 +25,7 @@ camera.position.set(0, 0, 1);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.dampingFactor = 0.08;
+controls.dampingFactor = 0.06;
 controls.target.set(0, 0, 0);
 controls.minDistance = 0.1;
 controls.maxDistance = 15;
@@ -185,8 +185,19 @@ const pointerDot = new THREE.Mesh(pointerGeo, pointerMat);
 pointerDot.visible = false;
 scene.add(pointerDot);
 
-// Web tube + strands
-let webTube = null;
+// Web main line — multi-segment bezier (no TubeGeometry per frame)
+const WEB_SEGMENTS = 30;
+const webMainGeo = new THREE.BufferGeometry();
+const webMainPositions = new Float32Array(WEB_SEGMENTS * 3);
+webMainGeo.setAttribute('position', new THREE.BufferAttribute(webMainPositions, 3));
+const webMainLine = new THREE.Line(webMainGeo, new THREE.LineBasicMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.8
+}));
+webMainLine.visible = false;
+scene.add(webMainLine);
+
+// Secondary strands
+let webTube = null; // kept for cleanup compatibility
 const webStrands = [];
 for (let i = 0; i < 2; i++) {
   const geo = new THREE.BufferGeometry();
@@ -204,7 +215,7 @@ let webPointerTarget = new THREE.Vector3();
 function updateWeb() {
   if (!webActive) {
     pointerDot.visible = false;
-    if (webTube) webTube.visible = false;
+    webMainLine.visible = false;
     webStrands.forEach(s => s.visible = false);
     return;
   }
@@ -222,7 +233,7 @@ function updateWeb() {
   if (hits.length > 0) {
     webPointerTarget.copy(hits[0].point);
   } else {
-    webPointerTarget.copy(camera.position).addScaledVector(dir, 5.0);
+    webPointerTarget.copy(camera.position).addScaledVector(dir, 15.0);
   }
 
   // Pointer dot
@@ -232,27 +243,31 @@ function updateWeb() {
   pointerMat.opacity = 0.6 + Math.sin(t) * 0.3;
   pointerDot.scale.setScalar(0.8 + Math.sin(t * 2) * 0.2);
 
-  // Main web — curved tube
+  // Main web — update multi-segment line along bezier curve
   const mid = handPos.clone().lerp(webPointerTarget, 0.5);
   mid.y -= 0.08; // slight sag
   const curve = new THREE.QuadraticBezierCurve3(handPos, mid, webPointerTarget);
-
-  if (webTube) { webTube.geometry.dispose(); scene.remove(webTube); }
-  const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.008, 4, false);
-  const tubeMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.85 });
-  webTube = new THREE.Mesh(tubeGeo, tubeMat);
-  scene.add(webTube);
-  webTube.visible = true;
+  const pts = curve.getPoints(WEB_SEGMENTS - 1);
+  const pos = webMainGeo.attributes.position.array;
+  for (let i = 0; i < WEB_SEGMENTS; i++) {
+    const p = pts[i];
+    const wobble = Math.sin(i / WEB_SEGMENTS * Math.PI) * Math.sin(t * 4 + i) * 0.01;
+    pos[i*3] = p.x + wobble;
+    pos[i*3+1] = p.y + wobble;
+    pos[i*3+2] = p.z;
+  }
+  webMainGeo.attributes.position.needsUpdate = true;
+  webMainLine.visible = true;
 
   // Secondary strands
-  webStrands.forEach((strand, i) => {
-    const offset = 0.02 * (i === 0 ? 1 : -1);
+  webStrands.forEach((strand, si) => {
+    const offset = 0.02 * (si === 0 ? 1 : -1);
     const midOff = mid.clone();
     midOff.x += offset; midOff.z += offset;
     const c2 = new THREE.QuadraticBezierCurve3(handPos, midOff, webPointerTarget);
-    const pts = c2.getPoints(16);
+    const strandPts = c2.getPoints(16);
     strand.geometry.dispose();
-    strand.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    strand.geometry = new THREE.BufferGeometry().setFromPoints(strandPts);
     strand.visible = true;
   });
 }
@@ -263,7 +278,10 @@ function updateHandIn3D(idx, landmarks) {
   if (!landmarks) { joints.forEach(j => j.visible = false); lines.visible = false; return; }
   for (let i = 0; i < 21; i++) {
     const lm = landmarks[i];
-    const p = new THREE.Vector3(-(lm.x - 0.5) * 0.4, -(lm.y - 0.5) * 0.35, -1.0);
+    const fovScale = camera.fov / 75; // normalize to base FOV
+    const wx = -(lm.x - 0.5) * 0.5 * fovScale;
+    const wy = -(lm.y - 0.5) * 0.4 * fovScale;
+    const p = new THREE.Vector3(wx, wy, -1.0);
     p.applyMatrix4(camera.matrixWorld);
     joints[i].position.copy(p);
     joints[i].visible = true;
@@ -290,10 +308,10 @@ let basePolar = Math.PI / 2;
 let headActive = false;
 
 function applyGestures(dt) {
-  // Smooth — 0.12 = buttery smooth, follows head with slight lag
-  sYaw += (headYaw - sYaw) * 0.12;
-  sPitch += (headPitch - sPitch) * 0.12;
-  sPull += (handPull - sPull) * 0.1;
+  // Smooth — 0.15 = responsive without jitter
+  sYaw += (headYaw - sYaw) * 0.15;
+  sPitch += (headPitch - sPitch) * 0.15;
+  sPull += (handPull - sPull) * 0.12;
 
   // HEAD → directly set orbit angle
   if (Math.abs(headYaw) > 0.01 || Math.abs(headPitch) > 0.01) {
@@ -329,20 +347,22 @@ function applyGestures(dt) {
     lookDir.y = 0;
     lookDir.normalize();
 
-    const walkSpeed = sPull * dt * 3.0;
+    const walkSpeed = sPull * dt * 4.0;
     const move = lookDir.multiplyScalar(walkSpeed);
 
     // Move both camera and target together (walking, not zooming)
     camera.position.add(move);
     controls.target.add(move);
-  }
 
-  // Prevent going below floor
-  const world = WORLDS[currentWorldName];
-  if (world) {
-    const floorY = world.camY - 0.5;
-    if (camera.position.y < floorY) camera.position.y = floorY;
-    if (controls.target.y < floorY) controls.target.y = floorY;
+    // Prevent going below floor — only during walking, NOT during web swing
+    if (!flyAnim) {
+      const world = WORLDS[currentWorldName];
+      if (world) {
+        const floorY = world.camY - 0.5;
+        if (camera.position.y < floorY) camera.position.y = floorY;
+        if (controls.target.y < floorY) controls.target.y = floorY;
+      }
+    }
   }
 }
 
@@ -364,20 +384,27 @@ function tickFly() {
   let t = Math.min(elapsed / flyAnim.duration, 1.0);
   // Smooth ease-in-out
   t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
   camera.position.lerpVectors(flyAnim.startPos, flyAnim.endPos, t);
   controls.target.lerpVectors(flyAnim.startTarget, flyAnim.endTarget, t);
+
+  // Add arc — rise up in the middle of the flight, then come down (swing feel)
+  const arcHeight = flyAnim.startPos.distanceTo(flyAnim.endPos) * 0.15;
+  const arc = Math.sin(t * Math.PI) * arcHeight;
+  camera.position.y += arc;
+  controls.target.y += arc;
+
+  // Widen FOV during swing for speed feel
+  camera.fov = 75 + arc * 20;
+  camera.updateProjectionMatrix();
+
   if (t >= 1.0) {
     baseAzimuth = controls.getAzimuthalAngle();
     basePolar = controls.getPolarAngle();
     flyAnim = null;
-  }
-
-  // Floor clamp during fly
-  const world = WORLDS[currentWorldName];
-  if (world) {
-    const floorY = world.camY - 0.5;
-    if (camera.position.y < floorY) camera.position.y = floorY;
-    if (controls.target.y < floorY) controls.target.y = floorY;
+    // Reset FOV
+    camera.fov = 75;
+    camera.updateProjectionMatrix();
   }
 }
 
@@ -422,21 +449,22 @@ initGestures({
       webHandIdx = handIdx;
       showToast('WEB!');
     } else {
-      // Released! Teleport to pointer location
+      // Released! Fly to EXACTLY where the pointer is — INCLUDING Y (go up buildings!)
       webActive = false;
-      pointerDot.visible = false;
-      if (webTube) webTube.visible = false;
+      webMainLine.visible = false;
       webStrands.forEach(s => s.visible = false);
+      pointerDot.visible = false;
 
-      // Fly camera to the web target
       const target = webPointerTarget.clone();
-      // Keep the same Y height (don't fly up/down)
-      target.y = camera.position.y;
-      const lookTarget = target.clone();
-      lookTarget.z -= 1; // look forward from new position
+      // Offset slightly back from the surface so you don't clip into the building
+      const dir = new THREE.Vector3().subVectors(camera.position, target).normalize();
+      target.addScaledVector(dir, 0.3);
 
-      // Use a short smooth flight
-      flyTo([target.x, target.y, target.z], [lookTarget.x, lookTarget.y, lookTarget.z], 0.8);
+      // Look direction = forward from new position (maintain current look direction roughly)
+      const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position).normalize();
+      const lookTarget = target.clone().add(lookDir);
+
+      flyTo([target.x, target.y, target.z], [lookTarget.x, lookTarget.y, lookTarget.z], 0.6);
       showToast('THWIP!');
     }
   },
