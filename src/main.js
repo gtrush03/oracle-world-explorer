@@ -336,15 +336,18 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  // Smooth — 0.1 = smooth but responsive
+  // Smooth inputs
   sYaw += (headYaw - sYaw) * 0.1;
   sPitch += (headPitch - sPitch) * 0.1;
   sPull += (handPull - sPull) * 0.1;
 
-  // HEAD → accumulate yaw ONLY when head is clearly turned
-  // 0.25 threshold = need a real deliberate head turn, not noise
-  if (Math.abs(sYaw) > 0.25) {
-    baseAzimuth -= sYaw * dt * 1.2;
+  // Kill tiny values — prevents drift from noise
+  if (Math.abs(sYaw) < 0.05) sYaw = 0;
+  if (Math.abs(sPitch) < 0.05) sPitch = 0;
+
+  // HEAD → accumulate yaw ONLY above strong threshold
+  if (Math.abs(sYaw) > 0.3) {
+    baseAzimuth -= sYaw * dt * 1.0;
   }
   // Pitch — tilt view gently, don't accumulate (position-based)
   const targetPolar = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle,
@@ -431,11 +434,29 @@ function animate() {
     if (controls.target.y < floorY) controls.target.y = floorY;
   }
   controls.update();
-  // Floor clamp AFTER controls to catch damping artifacts
+  // Floor clamp
   if (currentWorldName && WORLDS[currentWorldName]) {
-    const floorY = WORLDS[currentWorldName].camY;
+    const floorY = WORLDS[currentWorldName].camY - 0.4;
     if (camera.position.y < floorY) camera.position.y = floorY;
     if (controls.target.y < floorY) controls.target.y = floorY;
+  }
+  // Push away from walls (4 directions)
+  if (colliderLoaded && colliderMeshes.length > 0 && !flyAnim) {
+    const wallDist = 0.3;
+    const dirs = [
+      new THREE.Vector3(1,0,0), new THREE.Vector3(-1,0,0),
+      new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,-1),
+    ];
+    for (const d of dirs) {
+      raycaster.set(camera.position, d);
+      raycaster.far = wallDist;
+      const hits = raycaster.intersectObjects(colliderMeshes, false);
+      if (hits.length > 0 && hits[0].distance < wallDist) {
+        const push = wallDist - hits[0].distance;
+        camera.position.addScaledVector(d, -push);
+        controls.target.addScaledVector(d, -push);
+      }
+    }
   }
   updateWeb();
   renderer.render(scene, camera);
@@ -464,15 +485,15 @@ initGestures({
   onFist: nextWorld,
   onPalmDown: () => {},
   onSpiderMan: (handIdx, active) => {
+    console.log('[Spider-Man]', handIdx, active, 'webActive:', webActive);
     if (active) {
-      if (webActive) return; // prevent dual-web from both hands
-      // Start aiming
+      if (webActive) return;
       webActive = true;
       webHandIdx = handIdx;
       webShootStart = performance.now();
       showToast('WEB!');
     } else {
-      // Released! Fly to EXACTLY where the pointer is — INCLUDING Y (go up buildings!)
+      if (!webActive) return; // already released
       webActive = false;
       webMainLine.visible = false;
       webStrands.forEach(s => s.visible = false);
