@@ -125,9 +125,9 @@ function switchWorld(name) {
 
   scene.background = new THREE.Color(w.sky);
 
-  // Camera slightly below eye height, further back for wider view
-  camera.position.set(0, w.camY - 0.2, 2);
-  controls.target.set(0, w.camY - 0.2, 0);
+  // Camera at street level, further back
+  camera.position.set(0, w.camY - 0.4, 2.5);
+  controls.target.set(0, w.camY - 0.4, 0);
 
   // Reset gesture state
   headYaw = 0; headPitch = 0; handPull = 0;
@@ -336,15 +336,15 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  // Smooth — lower = smoother
-  sYaw += (headYaw - sYaw) * 0.12;
-  sPitch += (headPitch - sPitch) * 0.12;
-  sPull += (handPull - sPull) * 0.12;
+  // Smooth — 0.1 = smooth but responsive
+  sYaw += (headYaw - sYaw) * 0.1;
+  sPitch += (headPitch - sPitch) * 0.1;
+  sPull += (handPull - sPull) * 0.1;
 
-  // HEAD → accumulate yaw for sustained turns, but with high threshold
-  // sYaw must be significant (head clearly turned) before rotation starts
-  if (Math.abs(sYaw) > 0.08) {
-    baseAzimuth -= sYaw * dt * 1.5;
+  // HEAD → accumulate yaw ONLY when head is clearly turned
+  // 0.25 threshold = need a real deliberate head turn, not noise
+  if (Math.abs(sYaw) > 0.25) {
+    baseAzimuth -= sYaw * dt * 1.2;
   }
   // Pitch — tilt view gently, don't accumulate (position-based)
   const targetPolar = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle,

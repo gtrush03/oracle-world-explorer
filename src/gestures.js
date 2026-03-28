@@ -218,20 +218,20 @@ function processRightHand(lm, s, now) {
     s.fistPending = false;
   }
 
-  // Spider-Man pose: index + pinky extended, middle + ring curled, with X-spacing check
+  // Spider-Man pose: index + pinky up, middle + ring down (loose thresholds)
   const isSpiderMan =
-    lm[8].y < wristY - 0.03 &&   // index clearly above wrist
-    lm[20].y < wristY - 0.03 &&  // pinky clearly above wrist
-    lm[12].y > wristY + 0.03 &&  // middle clearly below wrist
-    lm[16].y > wristY + 0.03 &&  // ring clearly below wrist
-    Math.abs(lm[8].x - lm[20].x) > 0.06; // index and pinky spread apart
+    lm[8].y < wristY &&    // index above wrist
+    lm[20].y < wristY &&   // pinky above wrist
+    lm[12].y > wristY &&   // middle below wrist
+    lm[16].y > wristY;     // ring below wrist
 
   if (isSpiderMan && !s.spiderManActive) {
     if (!s.spiderManStart) s.spiderManStart = now;
-    // Require 150ms hold before activating
-    if (now - s.spiderManStart >= 150) {
+    // Show charging circle while holding (100ms hold)
+    const holdProgress = Math.min((now - s.spiderManStart) / 100, 1.0);
+    s.gestureLabel = holdProgress < 1 ? 'CHARGING...' : 'WEB!';
+    if (holdProgress >= 1.0) {
       s.spiderManActive = true;
-      s.gestureLabel = 'WEB!';
       if (cbSpiderMan) cbSpiderMan(0, true);
     }
   } else if (!isSpiderMan) {
@@ -272,24 +272,23 @@ function processLeftHand(lm, s, now) {
     s.gestureLabel = 'WAYPOINT';
   }
 
-  // Spider-Man pose: index + pinky extended, middle + ring curled, with X-spacing check
-  const wristY = lm[0].y;
-  const isSpiderMan =
-    lm[8].y < wristY - 0.03 &&   // index clearly above wrist
-    lm[20].y < wristY - 0.03 &&  // pinky clearly above wrist
-    lm[12].y > wristY + 0.03 &&  // middle clearly below wrist
-    lm[16].y > wristY + 0.03 &&  // ring clearly below wrist
-    Math.abs(lm[8].x - lm[20].x) > 0.06; // index and pinky spread apart
+  // Spider-Man pose (left hand) — same loose detection as right hand
+  const wristY2 = lm[0].y;
+  const isSpiderManL =
+    lm[8].y < wristY2 &&
+    lm[20].y < wristY2 &&
+    lm[12].y > wristY2 &&
+    lm[16].y > wristY2;
 
-  if (isSpiderMan && !s.spiderManActive) {
+  if (isSpiderManL && !s.spiderManActive) {
     if (!s.spiderManStart) s.spiderManStart = now;
-    // Require 150ms hold before activating
-    if (now - s.spiderManStart >= 150) {
+    const holdP = Math.min((now - s.spiderManStart) / 100, 1.0);
+    s.gestureLabel = holdP < 1 ? 'CHARGING...' : 'WEB!';
+    if (holdP >= 1.0) {
       s.spiderManActive = true;
-      s.gestureLabel = 'WEB!';
       if (cbSpiderMan) cbSpiderMan(1, true);
     }
-  } else if (!isSpiderMan) {
+  } else if (!isSpiderManL) {
     s.spiderManStart = 0;
     if (s.spiderManActive) {
       s.spiderManActive = false;
