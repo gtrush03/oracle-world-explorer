@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SplatMesh } from '@sparkjsdev/spark';
 import { initGemini, sendMessage, sendFunctionResponse, onText, onFunctionCall } from './gemini.js';
 import { initGestures, startCamera, stopCamera, isGesturesActive, recalibrateHead } from './gestures.js';
@@ -35,32 +36,67 @@ controls.enablePan = true;
 controls.maxPolarAngle = Math.PI * 0.85;
 controls.minPolarAngle = Math.PI * 0.15;
 
+// ── Collider for Raycasting ──────────────────────────────────
+
+const raycaster = new THREE.Raycaster();
+raycaster.far = 50;
+const colliderMeshes = [];
+let colliderLoaded = false;
+
+function loadCollider(url) {
+  colliderMeshes.length = 0;
+  colliderLoaded = false;
+  const loader = new GLTFLoader();
+  loader.load(url, (gltf) => {
+    const collider = gltf.scene;
+    // Apply same quaternion flip as the splat
+    collider.quaternion.set(1, 0, 0, 0);
+    collider.traverse((child) => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshBasicMaterial({
+          transparent: true, opacity: 0, depthWrite: false, colorWrite: false
+        });
+        colliderMeshes.push(child);
+      }
+    });
+    scene.add(collider);
+    colliderLoaded = true;
+    console.log('[Oracle] Collider loaded:', colliderMeshes.length, 'meshes');
+  });
+}
+
 // ── Worlds ───────────────────────────────────────────────────
 
 const WORLDS = {
   manhattan: {
     url: 'https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/a9ceecb6-54d7-482b-9404-a9d3dd62a470_ceramic_500k.spz',
     camY: -0.6, sky: 0x87CEEB, label: 'Manhattan Fifth Ave (HQ)',
+    collider: 'https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/cd554cce.glb',
   },
   temple: {
     url: 'https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/44a1f5e6-423b-4c36-bbfc-60d6a68348c3_sand_500k.spz',
     camY: 0, sky: 0x2a1a0a, label: 'Ancient Temple',
+    collider: null,
   },
   cyberpunk: {
     url: 'https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/3c0121e4-fdef-4ac7-b28b-b1b7134d4b50_sand.spz',
     camY: 0, sky: 0x0a0a1a, label: 'Cyberpunk Rooftop',
+    collider: null,
   },
   haunted: {
     url: 'https://storage.googleapis.com/forge-dev-public/hackathon-260227/haunted-house.spz',
     camY: 1, sky: 0x1a1a2a, label: 'Haunted House',
+    collider: null,
   },
   cottage: {
     url: 'https://storage.googleapis.com/forge-dev-public/hackathon-260227/cozy_cottage.spz',
     camY: 1, sky: 0x6699CC, label: 'Cozy Cottage',
+    collider: null,
   },
   spaceship: {
     url: 'https://storage.googleapis.com/forge-dev-public/hackathon-260227/cozy-spaceship_2.spz',
     camY: 6.5, sky: 0x050510, label: 'Spaceship',
+    collider: null,
   },
 };
 
@@ -83,6 +119,8 @@ function switchWorld(name) {
   scene.add(splat);
   currentSplat = splat;
   currentWorldName = name;
+
+  if (w.collider) loadCollider(w.collider);
 
   scene.background = new THREE.Color(w.sky);
 
@@ -147,14 +185,17 @@ const pointerDot = new THREE.Mesh(pointerGeo, pointerMat);
 pointerDot.visible = false;
 scene.add(pointerDot);
 
-// Web line — from hand to pointer
-const webLineGeo = new THREE.BufferGeometry();
-const webLinePositions = new Float32Array(20 * 3); // 20 segments for wavy line
-webLineGeo.setAttribute('position', new THREE.BufferAttribute(webLinePositions, 3));
-const webLineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
-const webLine = new THREE.Line(webLineGeo, webLineMat);
-webLine.visible = false;
-scene.add(webLine);
+// Web tube + strands
+let webTube = null;
+const webStrands = [];
+for (let i = 0; i < 2; i++) {
+  const geo = new THREE.BufferGeometry();
+  const mat = new THREE.LineBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.3 });
+  const line = new THREE.Line(geo, mat);
+  line.visible = false;
+  scene.add(line);
+  webStrands.push(line);
+}
 
 let webActive = false;
 let webHandIdx = 0;
@@ -163,46 +204,57 @@ let webPointerTarget = new THREE.Vector3();
 function updateWeb() {
   if (!webActive) {
     pointerDot.visible = false;
-    webLine.visible = false;
+    if (webTube) webTube.visible = false;
+    webStrands.forEach(s => s.visible = false);
     return;
   }
 
-  // Get hand's index fingertip position in 3D
-  const tipJoint = handJoints[webHandIdx][8]; // index fingertip
+  const tipJoint = handJoints[webHandIdx][8];
   if (!tipJoint.visible) return;
 
   const handPos = tipJoint.position.clone();
+  const dir = new THREE.Vector3().subVectors(handPos, camera.position).normalize();
 
-  // Calculate pointer target: shoot forward from camera through hand position
-  const dir = new THREE.Vector3();
-  dir.subVectors(handPos, camera.position).normalize();
-  webPointerTarget.copy(camera.position).addScaledVector(dir, 5.0); // 5 units ahead
+  // Raycast to find building surface
+  raycaster.set(camera.position, dir);
+  const hits = colliderLoaded ? raycaster.intersectObjects(colliderMeshes, false) : [];
 
-  // Position the pointer dot
+  if (hits.length > 0) {
+    webPointerTarget.copy(hits[0].point);
+  } else {
+    webPointerTarget.copy(camera.position).addScaledVector(dir, 5.0);
+  }
+
+  // Pointer dot
   pointerDot.position.copy(webPointerTarget);
   pointerDot.visible = true;
-
-  // Pulse the pointer
   const t = performance.now() * 0.005;
   pointerMat.opacity = 0.6 + Math.sin(t) * 0.3;
   pointerDot.scale.setScalar(0.8 + Math.sin(t * 2) * 0.2);
 
-  // Update web line with slight wave
-  const positions = webLineGeo.attributes.position.array;
-  const segments = 20;
-  for (let i = 0; i < segments; i++) {
-    const frac = i / (segments - 1);
-    const px = handPos.x + (webPointerTarget.x - handPos.x) * frac;
-    const py = handPos.y + (webPointerTarget.y - handPos.y) * frac;
-    const pz = handPos.z + (webPointerTarget.z - handPos.z) * frac;
-    // Add sine wave wobble (stronger in middle, zero at ends)
-    const wobble = Math.sin(frac * Math.PI) * Math.sin(t * 3 + frac * 10) * 0.02;
-    positions[i * 3] = px + wobble;
-    positions[i * 3 + 1] = py + wobble;
-    positions[i * 3 + 2] = pz;
-  }
-  webLineGeo.attributes.position.needsUpdate = true;
-  webLine.visible = true;
+  // Main web — curved tube
+  const mid = handPos.clone().lerp(webPointerTarget, 0.5);
+  mid.y -= 0.08; // slight sag
+  const curve = new THREE.QuadraticBezierCurve3(handPos, mid, webPointerTarget);
+
+  if (webTube) { webTube.geometry.dispose(); scene.remove(webTube); }
+  const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.008, 4, false);
+  const tubeMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.85 });
+  webTube = new THREE.Mesh(tubeGeo, tubeMat);
+  scene.add(webTube);
+  webTube.visible = true;
+
+  // Secondary strands
+  webStrands.forEach((strand, i) => {
+    const offset = 0.02 * (i === 0 ? 1 : -1);
+    const midOff = mid.clone();
+    midOff.x += offset; midOff.z += offset;
+    const c2 = new THREE.QuadraticBezierCurve3(handPos, midOff, webPointerTarget);
+    const pts = c2.getPoints(16);
+    strand.geometry.dispose();
+    strand.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    strand.visible = true;
+  });
 }
 
 function updateHandIn3D(idx, landmarks) {
@@ -284,6 +336,14 @@ function applyGestures(dt) {
     camera.position.add(move);
     controls.target.add(move);
   }
+
+  // Prevent going below floor
+  const world = WORLDS[currentWorldName];
+  if (world) {
+    const floorY = world.camY - 0.5;
+    if (camera.position.y < floorY) camera.position.y = floorY;
+    if (controls.target.y < floorY) controls.target.y = floorY;
+  }
 }
 
 // ── Fly-To (smooth camera teleport) ─────────────────────────
@@ -310,6 +370,14 @@ function tickFly() {
     baseAzimuth = controls.getAzimuthalAngle();
     basePolar = controls.getPolarAngle();
     flyAnim = null;
+  }
+
+  // Floor clamp during fly
+  const world = WORLDS[currentWorldName];
+  if (world) {
+    const floorY = world.camY - 0.5;
+    if (camera.position.y < floorY) camera.position.y = floorY;
+    if (controls.target.y < floorY) controls.target.y = floorY;
   }
 }
 
@@ -357,7 +425,8 @@ initGestures({
       // Released! Teleport to pointer location
       webActive = false;
       pointerDot.visible = false;
-      webLine.visible = false;
+      if (webTube) webTube.visible = false;
+      webStrands.forEach(s => s.visible = false);
 
       // Fly camera to the web target
       const target = webPointerTarget.clone();

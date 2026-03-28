@@ -13,7 +13,14 @@
       background: #050505;
       font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     }
-    canvas { display: block; }
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
 
     #loading {
       position: fixed;
@@ -31,17 +38,18 @@
 
     #overlay {
       position: fixed;
-      bottom: 24px;
+      top: 20px;
       left: 24px;
+      bottom: auto;
       z-index: 10;
       pointer-events: none;
       user-select: none;
     }
     #overlay h1 {
       color: rgba(255,255,255,0.25);
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 200;
-      letter-spacing: 8px;
+      letter-spacing: 12px;
       text-transform: uppercase;
     }
     #world-indicator {
@@ -56,15 +64,16 @@
       position: fixed;
       right: 16px;
       bottom: 16px;
-      width: 280px;
-      max-height: 50vh;
+      width: 320px;
+      max-height: 55vh;
       display: flex;
       flex-direction: column;
       z-index: 20;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(40px) saturate(1.4);
+      -webkit-backdrop-filter: blur(40px) saturate(1.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
       border-radius: 14px;
       overflow: hidden;
     }
@@ -179,9 +188,10 @@
       z-index: 15;
     }
     .wp-btn {
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       border: 1px solid rgba(255,255,255,0.1);
       color: rgba(255,255,255,0.4);
       font-size: 9px;
@@ -206,11 +216,16 @@
       left: 50%;
       transform: translateX(-50%);
       z-index: 30;
-      font-size: 14px;
-      letter-spacing: 6px;
+      font-size: 18px;
+      letter-spacing: 10px;
       text-transform: uppercase;
       color: rgba(255,255,255,0.8);
       text-shadow: 0 0 30px rgba(255,255,255,0.3);
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(20px);
+      padding: 8px 24px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
       opacity: 0;
       transition: opacity 0.3s;
       pointer-events: none;
@@ -279,6 +294,24 @@
       background: rgba(74,222,128,0.08);
     }
 
+    /* ── Cam HUD ── */
+    #cam-hud {
+      position: fixed; bottom: 60px; left: 16px;
+      width: 280px; height: 210px; z-index: 17;
+      pointer-events: none; border-radius: 8px; display: none;
+    }
+    .hud-corner { position: absolute; width: 16px; height: 16px; border-color: rgba(0,255,100,0.35); border-style: solid; border-width: 0; }
+    .hud-corner.tl { top: 4px; left: 4px; border-top-width: 1px; border-left-width: 1px; }
+    .hud-corner.tr { top: 4px; right: 4px; border-top-width: 1px; border-right-width: 1px; }
+    .hud-corner.bl { bottom: 4px; left: 4px; border-bottom-width: 1px; border-left-width: 1px; }
+    .hud-corner.br { bottom: 4px; right: 4px; border-bottom-width: 1px; border-right-width: 1px; }
+    .hud-scanline {
+      position: absolute; top: 0; left: 8px; right: 8px; height: 1px;
+      background: rgba(0,255,100,0.12);
+      animation: scanDown 3s linear infinite;
+    }
+    @keyframes scanDown { 0% { top: 5%; } 100% { top: 95%; } }
+
     /* ── Nav hint ── */
     #hint {
       position: fixed;
@@ -311,8 +344,15 @@
   <!-- Camera feed -->
   <video id="cam" autoplay playsinline></video>
   <canvas id="cam-overlay"></canvas>
+  <div id="cam-hud" style="display:none">
+    <div class="hud-corner tl"></div>
+    <div class="hud-corner tr"></div>
+    <div class="hud-corner bl"></div>
+    <div class="hud-corner br"></div>
+    <div class="hud-scanline"></div>
+  </div>
 
-  <div id="hint">head = look &middot; right hand = pull/push &middot; left hand = move &middot; fist = switch</div>
+  <div id="hint">head = look &middot; hand up/down = walk &middot; spider-man pose = web sling &middot; fist = switch world</div>
 
   <!-- Waypoint bar -->
   <div id="waypoint-bar"></div>
@@ -342,6 +382,14 @@
       const h = document.getElementById('hint');
       if (h) h.style.opacity = '0';
     }, 6000);
+
+    // Show HUD frame when camera is active
+    const camObserver = new MutationObserver(() => {
+      const cam = document.getElementById('cam');
+      const hud = document.getElementById('cam-hud');
+      if (cam && hud) hud.style.display = cam.style.display;
+    });
+    camObserver.observe(document.getElementById('cam'), { attributes: true, attributeFilter: ['style'] });
   </script>
 </body>
 </html>
