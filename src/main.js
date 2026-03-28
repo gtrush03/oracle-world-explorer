@@ -31,10 +31,21 @@ controls.minDistance = 0.1;
 controls.maxDistance = 15;
 controls.autoRotate = false;
 controls.rotateSpeed = 0.5;
-controls.zoomSpeed = 0.8;
+controls.enableZoom = false;  // we handle scroll ourselves for walking
 controls.enablePan = true;
 controls.maxPolarAngle = Math.PI * 0.85;
 controls.minPolarAngle = Math.PI * 0.15;
+
+// Scroll = walk forward/back
+const _scrollDir = new THREE.Vector3();
+renderer.domElement.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  _scrollDir.subVectors(controls.target, camera.position);
+  _scrollDir.y = 0;
+  _scrollDir.normalize().multiplyScalar(-e.deltaY * 0.003);
+  camera.position.add(_scrollDir);
+  controls.target.add(_scrollDir);
+}, { passive: false });
 
 // ── Collider for Raycasting ──────────────────────────────────
 
@@ -299,8 +310,8 @@ function updateHandIn3D(idx, landmarks) {
   for (let i = 0; i < 21; i++) {
     const lm = landmarks[i];
     const fovScale = camera.fov / 75; // normalize to base FOV
-    const wx = -(lm.x - 0.5) * 0.5 * fovScale;
-    const wy = -(lm.y - 0.5) * 0.4 * fovScale;
+    const wx = -(lm.x - 0.5) * 0.8 * fovScale;
+    const wy = -(lm.y - 0.5) * 0.6 * fovScale;
     _tmpVec.set(wx, wy, -1.0);
     _tmpVec.applyMatrix4(camera.matrixWorld);
     joints[i].position.copy(_tmpVec);
@@ -335,8 +346,8 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  sYaw += (headYaw - sYaw) * 0.15;
-  sPitch += (headPitch - sPitch) * 0.15;
+  sYaw += (headYaw - sYaw) * 0.2;
+  sPitch += (headPitch - sPitch) * 0.2;
   sRoll += (headRoll - sRoll) * 0.12;
   sPull += (handPull - sPull) * 0.12;
   sLeftX += (leftHandX - sLeftX) * 0.1;
@@ -345,24 +356,30 @@ function applyGestures(dt) {
   if (Math.abs(sPitch) < 0.02) sPitch = 0;
   if (Math.abs(sLeftX) < 0.05) sLeftX = 0;
 
-  // LEFT HAND → orbit rotation
-  if (Math.abs(sLeftX) > 0.05) {
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = sLeftX * 6;
-  } else {
-    controls.autoRotate = false;
+  // HEAD → inject rotation into OrbitControls' own delta system
+  // This is VR-style: look left = see what's to your left
+  if (Math.abs(sYaw) > 0.02) {
+    controls._sphericalDelta.theta += sYaw * 0.03;
+  }
+  if (Math.abs(sPitch) > 0.02) {
+    controls._sphericalDelta.phi -= sPitch * 0.02;
   }
 
-  // HAND → walk forward/backward
+  // LEFT HAND → orbit rotation
+  if (Math.abs(sLeftX) > 0.05) {
+    controls._sphericalDelta.theta += sLeftX * 0.04;
+  }
+
+  // RIGHT HAND → walk forward/backward
   if (Math.abs(sPull) > 0.03 && !flyAnim) {
-    const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position);
-    lookDir.y = 0;
-    lookDir.normalize();
+    _tmpVec.subVectors(controls.target, camera.position);
+    _tmpVec.y = 0;
+    _tmpVec.normalize();
     const walkSpeed = sPull * dt * 4.0;
-    const moveDir = lookDir.clone();
+    const moveDir = _tmpVec.clone();
     if (walkSpeed < 0) moveDir.negate();
     if (canMove(camera.position, moveDir, Math.abs(walkSpeed))) {
-      const move = lookDir.multiplyScalar(walkSpeed);
+      const move = _tmpVec.multiplyScalar(walkSpeed);
       camera.position.add(move);
       controls.target.add(move);
     }
@@ -449,13 +466,10 @@ function animate() {
 
   updateWeb();
 
-  // HEAD TRACKING — render-time rotation only (no position changes)
-  const savedRotX = camera.rotation.x;
+  // Subtle roll from head tilt (render-only)
   const savedRotZ = camera.rotation.z;
-  camera.rotation.x -= sPitch * 0.1;
-  camera.rotation.z = -sRoll * 0.12;
+  camera.rotation.z = -sRoll * 0.1;
   renderer.render(scene, camera);
-  camera.rotation.x = savedRotX;
   camera.rotation.z = savedRotZ;
 }
 animate();

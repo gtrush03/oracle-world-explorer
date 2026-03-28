@@ -24,8 +24,8 @@
 
 const HAND_SMOOTH = 0.25;   // EMA alpha for hands
 // HEAD_SMOOTH removed — main.js handles all head smoothing via lerp
-const FIST_HOLD_MS = 300;
-const FIST_COOLDOWN_MS = 1500;
+const FIST_HOLD_MS = 200;
+const FIST_COOLDOWN_MS = 1000;
 const PALM_FLAT_THRESH = 0.035;
 const PALM_RELEASE_THRESH = 0.065;
 const PALM_COOLDOWN_MS = 1200;
