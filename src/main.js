@@ -323,7 +323,8 @@ function updateHandIn3D(idx, landmarks) {
 let headYaw = 0, headPitch = 0, handPull = 0;
 let sYaw = 0, sPitch = 0, sPull = 0;
 
-// OrbitControls sets base angle via mouse drag, head adds offset on top
+// Head parallax offset — applied during render, removed after
+let headOffX = 0, headOffY = 0;
 
 function canMove(origin, direction, distance) {
   if (!colliderLoaded || colliderMeshes.length === 0) return true;
@@ -334,29 +335,20 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  // Fast smooth — 0.3 = near-realtime follow
-  sYaw += (headYaw - sYaw) * 0.3;
-  sPitch += (headPitch - sPitch) * 0.3;
+  // Smooth follow — 0.15 = responsive without sudden jumps
+  sYaw += (headYaw - sYaw) * 0.15;
+  sPitch += (headPitch - sPitch) * 0.15;
   sPull += (handPull - sPull) * 0.12;
 
-  // Dead zone — snap tiny values to zero
-  if (Math.abs(sYaw) < 0.03) sYaw = 0;
-  if (Math.abs(sPitch) < 0.03) sPitch = 0;
+  // Dead zone
+  if (Math.abs(sYaw) < 0.02) sYaw = 0;
+  if (Math.abs(sPitch) < 0.02) sPitch = 0;
 
-  // HEAD = DIRECT angle offset on top of OrbitControls' current angle
-  const baseAz = controls.getAzimuthalAngle();
-  const basePo = controls.getPolarAngle();
-  const finalAzimuth = baseAz - sYaw * 1.0;
-  const finalPolar = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle,
-    basePo + sPitch * 0.5));
-
-  const dist = camera.position.distanceTo(controls.target);
-  const ct = controls.target;
-  camera.position.set(
-    ct.x + dist * Math.sin(finalPolar) * Math.sin(finalAzimuth),
-    ct.y + dist * Math.cos(finalPolar),
-    ct.z + dist * Math.sin(finalPolar) * Math.cos(finalAzimuth)
-  );
+  // HEAD = small parallax offset (NOT rotation, NOT orbit)
+  // Just shift the camera position slightly based on head, like looking through a window
+  // Clamped to small range so it can't do 360 or get stuck
+  headOffX = sYaw * 0.4;   // max ±0.4 units sideways
+  headOffY = sPitch * 0.3;  // max ±0.3 units vertical
 
   // HAND → walk
   if (Math.abs(sPull) > 0.03 && !flyAnim) {
@@ -456,7 +448,12 @@ function animate() {
     }
   }
   updateWeb();
+  // Apply head parallax offset for render only (doesn't affect controls base)
+  camera.position.x += headOffX;
+  camera.position.y += headOffY;
   renderer.render(scene, camera);
+  camera.position.x -= headOffX;
+  camera.position.y -= headOffY;
 }
 animate();
 
