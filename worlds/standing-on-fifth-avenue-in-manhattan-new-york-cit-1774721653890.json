@@ -1,0 +1,61 @@
+{
+  "operation_id": "1147b028-075f-49b6-8d71-a0e4901546bb",
+  "prompt": "Standing on Fifth Avenue in Manhattan New York City, tall glass skyscrapers on both sides, yellow taxis driving past, pedestrians walking, American flags on buildings, clear sunny day, looking down the avenue toward the Empire State Building",
+  "generated_at": "2026-03-28T18:14:13.877Z",
+  "display_name": "Standing on Fifth Avenue in Manhattan New York City, tall gl",
+  "splat_urls": {
+    "500k": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/ca7f152d-3b82-476d-abd8-cc5a77e27291_sand_500k.spz",
+    "100k": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/b9ef36dc-b70d-4aaa-83dd-32e1b397118f_sand_100k.spz",
+    "full_res": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/36173c3b-731e-4075-bcd1-6453e3dda869_sand.spz"
+  },
+  "collider_mesh_url": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/8f292d39.glb",
+  "raw_response": {
+    "operation_id": "1147b028-075f-49b6-8d71-a0e4901546bb",
+    "created_at": "2026-03-28T18:13:39Z",
+    "updated_at": "2026-03-28T18:14:12Z",
+    "expires_at": "2026-03-29T06:13:39Z",
+    "done": true,
+    "error": null,
+    "metadata": {
+      "progress": {
+        "status": "SUCCEEDED",
+        "description": "World generation completed successfully"
+      },
+      "world_id": "fa7fd513-3aa8-4145-b6f8-e8358daa2528"
+    },
+    "response": {
+      "world_id": "fa7fd513-3aa8-4145-b6f8-e8358daa2528",
+      "display_name": "",
+      "tags": null,
+      "assets": {
+        "mesh": {
+          "collider_mesh_url": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/8f292d39.glb"
+        },
+        "imagery": {
+          "pano_url": null
+        },
+        "splats": {
+          "spz_urls": {
+            "500k": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/ca7f152d-3b82-476d-abd8-cc5a77e27291_sand_500k.spz",
+            "100k": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/b9ef36dc-b70d-4aaa-83dd-32e1b397118f_sand_100k.spz",
+            "full_res": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/36173c3b-731e-4075-bcd1-6453e3dda869_sand.spz"
+          },
+          "semantics_metadata": null
+        },
+        "thumbnail_url": "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/18fb06a1-9815-4db8-ba47-1db44c4619fb_sand_mpi/thumbnail.webp",
+        "caption": "The scene is a vibrant, photorealistic depiction of Fifth Avenue in Manhattan, New York City, under a clear, sunny sky, exuding an energetic and iconic urban atmosphere. Towering glass skyscrapers line both sides of the avenue, their reflective surfaces gleaming in the sunlight and mirroring the blue sky above. Yellow taxis, a quintessential New York City symbol, navigate the bustling street, creating streaks of bright color against the asphalt. Pedestrians traverse the sidewalks, their movements adding to the dynamic rhythm of the city. American flags proudly adorn several buildings, fluttering gently in the breeze and contributing a patriotic touch to the cityscape. The avenue stretches into the distance, culminating in the majestic silhouette of the Empire State Building, which stands as a prominent landmark. The architecture of the skyscrapers varies, with some featuring sleek, modern designs and others exhibiting more classic Art Deco influences, all contributing to the distinctive Manhattan skyline. Streetlights and traffic signals are visible, regulating the flow of vehicles and pedestrians. The sidewalks are wide and paved, accommodating the numerous people moving along the thoroughfare. The Empire State Building is positioned centrally at the far end of the avenue, drawing the eye. The yellow taxis are distributed along the street, moving in both directions. The American flags are affixed to the facades of various buildings along the avenue. The 360 scene is faultless."
+      },
+      "created_at": null,
+      "updated_at": null,
+      "permission": {
+        "public": false,
+        "allowed_readers": [],
+        "allowed_writers": [],
+        "allow_id_access": false
+      },
+      "world_prompt": null,
+      "world_marble_url": "https://marble.worldlabs.ai/world/fa7fd513-3aa8-4145-b6f8-e8358daa2528",
+      "model": null
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "operation_id": "959d9954-16c8-401a-9682-bd69cf9a8f28",
+  "prompt": "A neon-lit cyberpunk rooftop bar at night overlooking a futuristic city skyline with holographic signs and rain",
+  "generated_at": "2026-03-28T18:04:46.993Z",
+  "display_name": "A neon-lit cyberpunk rooftop bar at night overlooking a futu",
+  "splat_urls": {
+    "500k": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/6f26e9ef-7105-41ab-b346-18c622c33673_sand_500k.spz",
+    "100k": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/1653bac6-52f5-4adc-97d5-b98bef9917bb_sand_100k.spz",
+    "full_res": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/3c0121e4-fdef-4ac7-b28b-b1b7134d4b50_sand.spz"
+  },
+  "collider_mesh_url": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/b3c9d36c.glb",
+  "raw_response": {
+    "operation_id": "959d9954-16c8-401a-9682-bd69cf9a8f28",
+    "created_at": "2026-03-28T18:04:12Z",
+    "updated_at": "2026-03-28T18:04:46Z",
+    "expires_at": "2026-03-29T06:04:12Z",
+    "done": true,
+    "error": null,
+    "metadata": {
+      "progress": {
+        "status": "SUCCEEDED",
+        "description": "World generation completed successfully"
+      },
+      "world_id": "7da989cd-642b-4f72-bd81-1457ba36b8bc"
+    },
+    "response": {
+      "world_id": "7da989cd-642b-4f72-bd81-1457ba36b8bc",
+      "display_name": "",
+      "tags": null,
+      "assets": {
+        "mesh": {
+          "collider_mesh_url": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/b3c9d36c.glb"
+        },
+        "imagery": {
+          "pano_url": null
+        },
+        "splats": {
+          "spz_urls": {
+            "500k": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/6f26e9ef-7105-41ab-b346-18c622c33673_sand_500k.spz",
+            "100k": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/1653bac6-52f5-4adc-97d5-b98bef9917bb_sand_100k.spz",
+            "full_res": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/3c0121e4-fdef-4ac7-b28b-b1b7134d4b50_sand.spz"
+          },
+          "semantics_metadata": null
+        },
+        "thumbnail_url": "https://cdn.marble.worldlabs.ai/7da989cd-642b-4f72-bd81-1457ba36b8bc/aa116bbe-93fe-4f14-a1c4-8e2161615a40_sand_mpi/thumbnail.webp",
+        "caption": "The scene is a neon-lit cyberpunk rooftop bar, rendered in a highly realistic style, capturing the gritty yet mesmerizing aesthetic of a futuristic metropolis at night. The overall tone is atmospheric and immersive, evoking a sense of advanced technology intertwined with urban decay. The bar itself features sleek, dark surfaces reflecting the vibrant neon glow from various signs and fixtures. Rain streaks across the panoramic windows and open sections of the rooftop, adding a dynamic element to the view. Holographic advertisements shimmer and shift across the towering skyscrapers that dominate the city skyline, displaying animated characters and futuristic products. Flying vehicles, their lights streaking, navigate the dense air traffic lanes between buildings. The bar's interior is furnished with minimalist seating arrangements, including high-backed chairs and low tables, all illuminated by subtle underlighting. A long, polished bar counter, also aglow with neon accents, stretches along one side, stocked with an array of exotic, glowing beverages. The city below is a sprawling tapestry of light, with countless windows and street-level illuminations creating a complex network of urban activity. The rain-slicked surfaces of the bar and the distant buildings enhance the reflective qualities of the scene, multiplying the neon colors. The holographic signs are integrated seamlessly into the architecture of the skyscrapers, appearing as extensions of the buildings themselves. The bar counter is positioned along the edge of the rooftop, offering an unobstructed view of the cityscape. The seating areas are arranged in clusters, providing intimate spaces for patrons. The 360 scene is faultless."
+      },
+      "created_at": null,
+      "updated_at": null,
+      "permission": {
+        "public": false,
+        "allowed_readers": [],
+        "allowed_writers": [],
+        "allow_id_access": false
+      },
+      "world_prompt": null,
+      "world_marble_url": "https://marble.worldlabs.ai/world/7da989cd-642b-4f72-bd81-1457ba36b8bc",
+      "model": null
+    }
+  }
+}

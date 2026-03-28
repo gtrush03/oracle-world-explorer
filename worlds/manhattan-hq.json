@@ -1,0 +1,52 @@
+{
+  "operation_id": "87e0c6ab-60c4-4452-85e2-c0ea58bc4aff",
+  "created_at": "2026-03-28T18:24:18Z",
+  "updated_at": "2026-03-28T18:33:22Z",
+  "expires_at": "2026-03-29T06:24:18Z",
+  "done": true,
+  "error": null,
+  "metadata": {
+    "progress": {
+      "status": "SUCCEEDED",
+      "description": "World generation completed successfully"
+    },
+    "world_id": "50134904-97be-496d-80b2-7b26e7340590"
+  },
+  "response": {
+    "world_id": "50134904-97be-496d-80b2-7b26e7340590",
+    "display_name": "",
+    "tags": null,
+    "assets": {
+      "mesh": {
+        "collider_mesh_url": "https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/cd554cce.glb"
+      },
+      "imagery": {
+        "pano_url": "https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/feb5da74-b2ad-423f-b5f9-7a8e5a6f29da_panos/rgb_0.png"
+      },
+      "splats": {
+        "spz_urls": {
+          "500k": "https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/a9ceecb6-54d7-482b-9404-a9d3dd62a470_ceramic_500k.spz",
+          "100k": "https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/17829a22-afec-4552-bfa7-967e98c818dd_dust_100k.spz",
+          "full_res": "https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/83689f81-f56a-4c2b-a8c4-85c23f4b432f_ceramic.spz"
+        },
+        "semantics_metadata": {
+          "metric_scale_factor": 11.342193,
+          "ground_plane_offset": 9.116583
+        }
+      },
+      "thumbnail_url": "https://cdn.marble.worldlabs.ai/50134904-97be-496d-80b2-7b26e7340590/fd3977bb-d6a4-4936-8297-ee5e99ae2855_dust_mpi/thumbnail.webp",
+      "caption": "The scene is a realistic, vibrant depiction of Fifth Avenue in Manhattan, New York City, capturing the bustling energy of a clear day in an urban canyon. The overall tone is grand and dynamic, showcasing the iconic architecture and lively streetscape. Towering modern glass skyscrapers rise majestically on both sides of the avenue, their reflective surfaces shimmering under a brilliant, clear blue sky. The street below is a river of yellow taxi cabs, their bright color contrasting with the darker asphalt. Pedestrians throng the wide sidewalks, moving with purpose amidst the urban environment. American flags, proudly displayed, flutter from various buildings, adding patriotic accents to the scene. Mature trees line the avenue, their green canopies providing a natural element against the backdrop of steel and glass. The perspective is that of a person standing at street level, looking directly down the expansive thoroughfare. The skyscrapers create a dramatic corridor, drawing the eye into the distance. The yellow taxi cabs are densely packed on the road, forming multiple lanes of traffic. The sidewalks are bustling with pedestrians, some walking, others pausing to observe their surroundings. The American flags are affixed to the facades of the buildings, positioned at various heights. The trees are planted in regular intervals along the sidewalks, forming a green border between the pedestrian areas and the street. The 360 scene is faultless."
+    },
+    "created_at": null,
+    "updated_at": null,
+    "permission": {
+      "public": false,
+      "allowed_readers": [],
+      "allowed_writers": [],
+      "allow_id_access": false
+    },
+    "world_prompt": null,
+    "world_marble_url": "https://marble.worldlabs.ai/world/50134904-97be-496d-80b2-7b26e7340590",
+    "model": null
+  }
+}

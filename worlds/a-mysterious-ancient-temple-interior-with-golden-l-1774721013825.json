@@ -1,0 +1,61 @@
+{
+  "operation_id": "0dc863d9-a224-4f37-9b34-0c6579bcf0c3",
+  "prompt": "A mysterious ancient temple interior with golden light streaming through cracks in the stone ceiling, moss-covered pillars, and a glowing altar at the center",
+  "generated_at": "2026-03-28T18:03:33.817Z",
+  "display_name": "A mysterious ancient temple interior with golden light strea",
+  "splat_urls": {
+    "500k": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/44a1f5e6-423b-4c36-bbfc-60d6a68348c3_sand_500k.spz",
+    "100k": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/59bc3d42-781f-460e-96c1-784c8c11196a_sand_100k.spz",
+    "full_res": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/592ca3db-7f3f-48b9-be7c-1124596b037f_sand.spz"
+  },
+  "collider_mesh_url": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/16af3c74.glb",
+  "raw_response": {
+    "operation_id": "0dc863d9-a224-4f37-9b34-0c6579bcf0c3",
+    "created_at": "2026-03-28T18:03:02Z",
+    "updated_at": "2026-03-28T18:03:30Z",
+    "expires_at": "2026-03-29T06:03:02Z",
+    "done": true,
+    "error": null,
+    "metadata": {
+      "progress": {
+        "status": "SUCCEEDED",
+        "description": "World generation completed successfully"
+      },
+      "world_id": "aadaf92f-0932-4c7d-85ba-9c530827fbae"
+    },
+    "response": {
+      "world_id": "aadaf92f-0932-4c7d-85ba-9c530827fbae",
+      "display_name": "",
+      "tags": null,
+      "assets": {
+        "mesh": {
+          "collider_mesh_url": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/16af3c74.glb"
+        },
+        "imagery": {
+          "pano_url": null
+        },
+        "splats": {
+          "spz_urls": {
+            "500k": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/44a1f5e6-423b-4c36-bbfc-60d6a68348c3_sand_500k.spz",
+            "100k": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/59bc3d42-781f-460e-96c1-784c8c11196a_sand_100k.spz",
+            "full_res": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/592ca3db-7f3f-48b9-be7c-1124596b037f_sand.spz"
+          },
+          "semantics_metadata": null
+        },
+        "thumbnail_url": "https://cdn.marble.worldlabs.ai/aadaf92f-0932-4c7d-85ba-9c530827fbae/8825278a-84c6-4143-979a-5308f58cadf4_sand_mpi/thumbnail.webp",
+        "caption": "The scene is an ancient temple interior, rendered in a realistic style, evoking a sense of mystery and reverence. The overall tone is ethereal and sacred, illuminated by a divine golden light. Massive stone pillars, heavily draped in vibrant green moss, rise majestically from the temple floor, supporting a colossal stone ceiling. Golden light streams dramatically through numerous cracks and fissures in the ceiling, casting long, luminous rays that pierce the dim interior. At the very center of the temple, a glowing altar radiates an intense, warm light, illuminating its immediate surroundings. The altar is intricately carved from a dark, unidentifiable stone, adorned with ancient symbols that pulse faintly with the same golden energy. The floor around the altar is composed of large, uneven flagstones, also partially covered in moss and ancient dust. The air is still, carrying an aura of profound antiquity and forgotten rituals. The moss-covered pillars are arranged in a circular formation around the central glowing altar. The golden light from the ceiling cracks converges towards the altar, highlighting its central importance. The flagstone floor extends outward from the altar to the base of the pillars. The 360 scene is faultless."
+      },
+      "created_at": null,
+      "updated_at": null,
+      "permission": {
+        "public": false,
+        "allowed_readers": [],
+        "allowed_writers": [],
+        "allow_id_access": false
+      },
+      "world_prompt": null,
+      "world_marble_url": "https://marble.worldlabs.ai/world/aadaf92f-0932-4c7d-85ba-9c530827fbae",
+      "model": null
+    }
+  }
+}

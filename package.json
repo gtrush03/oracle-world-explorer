@@ -1,0 +1,20 @@
+{
+  "name": "oracle",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@google/genai": "^1.47.0",
+    "@sparkjsdev/spark": "^0.1.10",
+    "parallax-effect": "^2.1.1",
+    "postprocessing": "^6.36.7",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal Gaussian Splat Viewer</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #toggle-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      padding: 12px 20px;
+      font-size: 16px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #toggle-btn:hover { background: #555; }
+    #status {
+      position: fixed;
+      top: 70px;
+      left: 20px;
+      z-index: 100;
+      color: #fff;
+      background: rgba(0,0,0,0.6);
+      padding: 8px 14px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <button id="toggle-btn">Mode: Default (no quaternion)</button>
+  <div id="status">Loading splat...</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.170.0/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/0.1.10/spark.module.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { SplatMesh } from '@sparkjsdev/spark';
+
+    const SPLAT_URL = 'https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/ca7f152d-3b82-476d-abd8-cc5a77e27291_sand_500k.spz';
+
+    let useFlip = false;
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb); // sky blue
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+    camera.position.set(0, 0, 1);
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // Load splat — SplatMesh constructor takes { url }
+    const splat = new SplatMesh({ url: SPLAT_URL });
+    // No quaternion set = identity (0,0,0,1) — "default" mode
+    scene.add(splat);
+
+    const status = document.getElementById('status');
+    status.textContent = 'Mode: Default (no quaternion flip)';
+
+    // Toggle button
+    const btn = document.getElementById('toggle-btn');
+    btn.addEventListener('click', () => {
+      useFlip = !useFlip;
+      if (useFlip) {
+        splat.quaternion.set(1, 0, 0, 0);
+        btn.textContent = 'Mode: OpenCV flip (quat 1,0,0,0)';
+        status.textContent = 'Mode: OpenCV flip — quaternion.set(1, 0, 0, 0)';
+      } else {
+        splat.quaternion.set(0, 0, 0, 1);
+        btn.textContent = 'Mode: Default (no quaternion)';
+        status.textContent = 'Mode: Default (no quaternion flip)';
+      }
+    });
+
+    // Resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Animate
+    renderer.setAnimationLoop(() => {
+      controls.update();
+      renderer.render(scene, camera);
+    });
+  </script>
+</body>
+</html>

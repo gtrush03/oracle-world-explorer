@@ -1,0 +1,61 @@
+{
+  "operation_id": "22969588-db22-4343-abef-43bf56159662",
+  "prompt": "A sunny New York City street during daytime, brownstone buildings, yellow taxi cabs, trees with green leaves, clear blue sky, pedestrian crosswalk",
+  "generated_at": "2026-03-28T18:07:51.390Z",
+  "display_name": "A sunny New York City street during daytime, brownstone buil",
+  "splat_urls": {
+    "500k": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/e87ad96c-0557-4d5b-8dd3-a9fca51b99a2_sand_500k.spz",
+    "100k": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/e72dc028-ca67-484e-a6a3-e6a2c45dc36d_sand_100k.spz",
+    "full_res": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/ae22c05b-231d-44f7-a424-daeee3506ab1_sand.spz"
+  },
+  "collider_mesh_url": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/d5d2834c.glb",
+  "raw_response": {
+    "operation_id": "22969588-db22-4343-abef-43bf56159662",
+    "created_at": "2026-03-28T18:07:22Z",
+    "updated_at": "2026-03-28T18:07:49Z",
+    "expires_at": "2026-03-29T06:07:22Z",
+    "done": true,
+    "error": null,
+    "metadata": {
+      "progress": {
+        "status": "SUCCEEDED",
+        "description": "World generation completed successfully"
+      },
+      "world_id": "e30a6bf3-f6d3-44a1-9893-98b213015b31"
+    },
+    "response": {
+      "world_id": "e30a6bf3-f6d3-44a1-9893-98b213015b31",
+      "display_name": "",
+      "tags": null,
+      "assets": {
+        "mesh": {
+          "collider_mesh_url": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/d5d2834c.glb"
+        },
+        "imagery": {
+          "pano_url": null
+        },
+        "splats": {
+          "spz_urls": {
+            "500k": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/e87ad96c-0557-4d5b-8dd3-a9fca51b99a2_sand_500k.spz",
+            "100k": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/e72dc028-ca67-484e-a6a3-e6a2c45dc36d_sand_100k.spz",
+            "full_res": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/ae22c05b-231d-44f7-a424-daeee3506ab1_sand.spz"
+          },
+          "semantics_metadata": null
+        },
+        "thumbnail_url": "https://cdn.marble.worldlabs.ai/e30a6bf3-f6d3-44a1-9893-98b213015b31/b5606841-ec79-4cfa-bed1-0ee191d9f2b3_sand_mpi/thumbnail.webp",
+        "caption": "The scene is a vibrant and realistic depiction of a sunny New York City street during daytime, exuding a lively and classic urban atmosphere. Brownstone buildings with their characteristic reddish-brown facades line both sides of the street, showcasing intricate architectural details and numerous windows. Yellow taxi cabs are prominently featured, some parked along the curb and others in motion, adding a quintessential New York element to the scene. Trees with lush green leaves are interspersed along the sidewalks, providing shade and a touch of nature amidst the urban landscape. The sky above is a clear, bright blue, indicating excellent weather conditions. A pedestrian crosswalk is clearly marked on the asphalt, guiding foot traffic across the street. Streetlights and traffic signals are visible, contributing to the authentic city environment. The brownstone buildings stand tall and stately, their brickwork catching the sunlight. The yellow taxi cabs are positioned on the street, some near the curb and others in the traffic lanes. The trees are planted along the sidewalks in front of the brownstone buildings. The pedestrian crosswalk stretches across the street, connecting one sidewalk to the other. The 360 scene is faultless."
+      },
+      "created_at": null,
+      "updated_at": null,
+      "permission": {
+        "public": false,
+        "allowed_readers": [],
+        "allowed_writers": [],
+        "allow_id_access": false
+      },
+      "world_prompt": null,
+      "world_marble_url": "https://marble.worldlabs.ai/world/e30a6bf3-f6d3-44a1-9893-98b213015b31",
+      "model": null
+    }
+  }
+}

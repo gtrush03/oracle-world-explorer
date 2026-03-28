@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Gaussian Splat Orientation Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #111; color: #eee; font-family: monospace; overflow: hidden; }
+
+    #toolbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(0,0,0,0.85); padding: 8px 12px;
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    }
+    #toolbar button {
+      background: #333; color: #ccc; border: 1px solid #555;
+      padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 11px;
+      border-radius: 3px; white-space: nowrap;
+    }
+    #toolbar button:hover { background: #444; }
+    #toolbar button.active { background: #0a5; color: #fff; border-color: #0c7; }
+
+    #info {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(0,0,0,0.85); padding: 10px 14px;
+      font-size: 12px; line-height: 1.6;
+    }
+    #info .label { color: #0c7; font-weight: bold; }
+    #info .detail { color: #aaa; }
+    #info .spark-note { color: #f90; margin-top: 6px; }
+
+    canvas { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <button onclick="switchConfig(0)" id="btn0">1: Normal cam, no transform</button>
+    <button onclick="switchConfig(1)" id="btn1">2: splat.rotation.x = PI</button>
+    <button onclick="switchConfig(2)" id="btn2">3: Cam Y=-1.6, no transform</button>
+    <button onclick="switchConfig(3)" id="btn3">4: Cam Y=-1.6, Z=-5</button>
+    <button onclick="switchConfig(4)" id="btn4">5: splat.quat(1,0,0,0)</button>
+    <button onclick="switchConfig(5)" id="btn5" style="border-color:#f90;color:#f90">6: Spark Editor Style</button>
+  </div>
+
+  <div id="info">
+    <div><span class="label">Active: </span><span id="config-name">Loading...</span></div>
+    <div><span class="label">Camera: </span><span id="cam-info" class="detail">--</span></div>
+    <div><span class="label">Splat Transform: </span><span id="splat-info" class="detail">--</span></div>
+    <div class="spark-note" id="spark-note"></div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.170.0/three.module.js",
+        "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/0.1.10/spark.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
+
+    // ---- Setup ----
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    const spark = new SparkRenderer({ renderer });
+    scene.add(spark);
+
+    // ---- Splat ----
+    const SPLAT_URL = "https://cdn.marble.worldlabs.ai/fa7fd513-3aa8-4145-b6f8-e8358daa2528/ca7f152d-3b82-476d-abd8-cc5a77e27291_sand_500k.spz";
+
+    const splat = new SplatMesh();
+    scene.add(splat);
+
+    // Container group (used for Spark Editor style — config 6)
+    const frame = new THREE.Group();
+    scene.add(frame);
+    // frame is not used until config 6
+
+    let splatLoaded = false;
+
+    (async () => {
+      try {
+        const response = await fetch(SPLAT_URL, { mode: "cors" });
+        const data = new Uint8Array(await response.arrayBuffer());
+        splat.loadFromBytes(data, SPLAT_URL);
+        splatLoaded = true;
+        console.log("Splat loaded successfully");
+        switchConfig(0);
+      } catch (e) {
+        console.error("Failed to load splat:", e);
+        document.getElementById("config-name").textContent = "LOAD ERROR: " + e.message;
+      }
+    })();
+
+    // ---- Orbit Controls (manual, no import needed) ----
+    let isDragging = false;
+    let prevMouse = { x: 0, y: 0 };
+    let spherical = { theta: 0, phi: Math.PI / 2, radius: 5 };
+    let target = new THREE.Vector3(0, 1.6, 0);
+
+    function updateCameraFromSpherical() {
+      camera.position.x = target.x + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+      camera.position.y = target.y + spherical.radius * Math.cos(spherical.phi);
+      camera.position.z = target.z + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+      camera.lookAt(target);
+    }
+
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      isDragging = true;
+      prevMouse = { x: e.clientX, y: e.clientY };
+    });
+    window.addEventListener("pointerup", () => { isDragging = false; });
+    window.addEventListener("pointermove", (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - prevMouse.x;
+      const dy = e.clientY - prevMouse.y;
+      spherical.theta -= dx * 0.005;
+      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi + dy * 0.005));
+      prevMouse = { x: e.clientX, y: e.clientY };
+      updateCameraFromSpherical();
+    });
+    renderer.domElement.addEventListener("wheel", (e) => {
+      spherical.radius = Math.max(0.5, Math.min(50, spherical.radius + e.deltaY * 0.01));
+      updateCameraFromSpherical();
+      e.preventDefault();
+    }, { passive: false });
+
+    // ---- Configs ----
+    const configs = [
+      {
+        name: "1: Normal camera, NO splat transform",
+        camPos: [0, 1.6, 5],
+        camLookAt: [0, 1.6, 0],
+        splatRotation: null,
+        splatQuaternion: null,
+        useFrame: false,
+        description: "Camera at (0, 1.6, 5), looking at (0, 1.6, 0). Splat has identity transform."
+      },
+      {
+        name: "2: splat.rotation.x = Math.PI",
+        camPos: [0, 1.6, 5],
+        camLookAt: [0, 1.6, 0],
+        splatRotation: [Math.PI, 0, 0],
+        splatQuaternion: null,
+        useFrame: false,
+        description: "Camera at (0, 1.6, 5). Splat rotated 180 deg around X axis via Euler."
+      },
+      {
+        name: "3: Camera Y=-1.6, no transform",
+        camPos: [0, -1.6, 5],
+        camLookAt: [0, -1.6, 0],
+        splatRotation: null,
+        splatQuaternion: null,
+        useFrame: false,
+        description: "Camera at (0, -1.6, 5), looking at (0, -1.6, 0). No splat transform."
+      },
+      {
+        name: "4: Camera Y=-1.6, Z=-5",
+        camPos: [0, -1.6, -5],
+        camLookAt: [0, -1.6, 0],
+        splatRotation: null,
+        splatQuaternion: null,
+        useFrame: false,
+        description: "Camera at (0, -1.6, -5), looking at (0, -1.6, 0). No splat transform."
+      },
+      {
+        name: "5: splat.quaternion.set(1, 0, 0, 0)",
+        camPos: [0, 1.6, 5],
+        camLookAt: [0, 1.6, 0],
+        splatRotation: null,
+        splatQuaternion: [1, 0, 0, 0],
+        useFrame: false,
+        description: "Camera at (0, 1.6, 5). Splat quaternion (1,0,0,0) = 180 deg X flip."
+      },
+      {
+        name: "6: SPARK EDITOR STYLE (frame group quat)",
+        camPos: [0, 1, 1],
+        camLookAt: [0, 0, 0],
+        splatRotation: null,
+        splatQuaternion: null,
+        useFrame: true,
+        description: "Spark editor: parent Group.quaternion.set(1,0,0,0), camera at (0,1,1). This is what the official editor does."
+      },
+    ];
+
+    let activeConfig = -1;
+
+    window.switchConfig = function(idx) {
+      const cfg = configs[idx];
+      activeConfig = idx;
+
+      // Reset splat transforms
+      splat.position.set(0, 0, 0);
+      splat.rotation.set(0, 0, 0);
+      splat.quaternion.set(0, 0, 0, 1);
+      frame.quaternion.set(0, 0, 0, 1);
+
+      // Remove splat from both scene and frame, re-add to correct parent
+      scene.remove(splat);
+      frame.remove(splat);
+
+      if (cfg.useFrame) {
+        frame.quaternion.set(1, 0, 0, 0);
+        frame.add(splat);
+      } else {
+        scene.add(splat);
+      }
+
+      if (cfg.splatRotation) {
+        splat.rotation.set(cfg.splatRotation[0], cfg.splatRotation[1], cfg.splatRotation[2]);
+      }
+      if (cfg.splatQuaternion) {
+        splat.quaternion.set(cfg.splatQuaternion[0], cfg.splatQuaternion[1], cfg.splatQuaternion[2], cfg.splatQuaternion[3]);
+      }
+
+      // Set camera
+      camera.position.set(cfg.camPos[0], cfg.camPos[1], cfg.camPos[2]);
+      target.set(cfg.camLookAt[0], cfg.camLookAt[1], cfg.camLookAt[2]);
+      camera.lookAt(target);
+
+      // Update spherical from camera position
+      const dx = camera.position.x - target.x;
+      const dy = camera.position.y - target.y;
+      const dz = camera.position.z - target.z;
+      spherical.radius = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      spherical.phi = Math.acos(dy / spherical.radius);
+      spherical.theta = Math.atan2(dx, dz);
+
+      // Update UI
+      document.querySelectorAll("#toolbar button").forEach((b, i) => {
+        b.classList.toggle("active", i === idx);
+      });
+      document.getElementById("config-name").textContent = cfg.name;
+      document.getElementById("cam-info").textContent =
+        `pos(${cfg.camPos.join(", ")}) lookAt(${cfg.camLookAt.join(", ")})`;
+
+      let splatDesc = "Identity (no transform)";
+      if (cfg.splatRotation) splatDesc = `rotation.set(${cfg.splatRotation.map(v => v === Math.PI ? "PI" : v).join(", ")})`;
+      if (cfg.splatQuaternion) splatDesc = `quaternion.set(${cfg.splatQuaternion.join(", ")})`;
+      if (cfg.useFrame) splatDesc = "Parent Group.quaternion.set(1, 0, 0, 0) -- Spark editor approach";
+      document.getElementById("splat-info").textContent = splatDesc;
+
+      const sparkNote = document.getElementById("spark-note");
+      if (idx === 5) {
+        sparkNote.textContent = "This matches the Spark editor source: frame = new Group(); frame.quaternion.set(1,0,0,0); frame.add(splat). Camera starts at (0,0,1) with y=1 from URL param.";
+      } else if (idx === 4) {
+        sparkNote.textContent = "quaternion(1,0,0,0) is equivalent to rotation.x = PI -- both flip 180 deg around X axis.";
+      } else {
+        sparkNote.textContent = "";
+      }
+    };
+
+    // ---- Resize ----
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ---- Render Loop ----
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
