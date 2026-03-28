@@ -201,7 +201,9 @@ scene.add(webMainLine);
 let webTube = null;
 const webStrands = [];
 for (let i = 0; i < 3; i++) {
+  const positions = new Float32Array(17 * 3);
   const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const mat = new THREE.LineBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.5 });
   const line = new THREE.Line(geo, mat);
   line.visible = false;
@@ -250,7 +252,7 @@ function updateWeb() {
 
   // Pointer dot — only visible once web reaches target
   pointerDot.position.copy(webPointerTarget);
-  pointerDot.visible = shootProgress > 0.8;
+  pointerDot.visible = shootProgress > 0.2;
   const t = performance.now() * 0.005;
   pointerMat.opacity = 0.7 + Math.sin(t) * 0.3;
   pointerDot.scale.setScalar(1.0 + Math.sin(t * 2) * 0.3);
@@ -279,8 +281,13 @@ function updateWeb() {
     midOff.x += offset; midOff.z += offset * 0.7;
     const c2 = new THREE.QuadraticBezierCurve3(handPos, midOff, currentEnd);
     const strandPts = c2.getPoints(16);
-    strand.geometry.dispose();
-    strand.geometry = new THREE.BufferGeometry().setFromPoints(strandPts);
+    const pos = strand.geometry.attributes.position.array;
+    for (let j = 0; j < strandPts.length; j++) {
+      pos[j*3] = strandPts[j].x;
+      pos[j*3+1] = strandPts[j].y;
+      pos[j*3+2] = strandPts[j].z;
+    }
+    strand.geometry.attributes.position.needsUpdate = true;
     strand.visible = true;
   });
 }
@@ -330,13 +337,13 @@ function canMove(origin, direction, distance) {
 
 function applyGestures(dt) {
   // Smooth — lower = smoother
-  sYaw += (headYaw - sYaw) * 0.08;
-  sPitch += (headPitch - sPitch) * 0.08;
-  sPull += (handPull - sPull) * 0.08;
+  sYaw += (headYaw - sYaw) * 0.12;
+  sPitch += (headPitch - sPitch) * 0.12;
+  sPull += (handPull - sPull) * 0.12;
 
   // HEAD → accumulate yaw for sustained turns, but with high threshold
   // sYaw must be significant (head clearly turned) before rotation starts
-  if (Math.abs(sYaw) > 0.15) {
+  if (Math.abs(sYaw) > 0.08) {
     baseAzimuth -= sYaw * dt * 1.5;
   }
   // Pitch — tilt view gently, don't accumulate (position-based)
@@ -415,10 +422,16 @@ function tickFly() {
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
-  applyGestures(clock.getDelta());
+  applyGestures(Math.min(Math.max(clock.getDelta(), 0.005), 0.05));
   tickFly();
+  // Floor clamp BEFORE controls to prevent temporary clipping
+  if (currentWorldName && WORLDS[currentWorldName]) {
+    const floorY = WORLDS[currentWorldName].camY;
+    if (camera.position.y < floorY) camera.position.y = floorY;
+    if (controls.target.y < floorY) controls.target.y = floorY;
+  }
   controls.update();
-  // Global floor clamp — catches ALL sources of below-floor movement
+  // Floor clamp AFTER controls to catch damping artifacts
   if (currentWorldName && WORLDS[currentWorldName]) {
     const floorY = WORLDS[currentWorldName].camY;
     if (camera.position.y < floorY) camera.position.y = floorY;
@@ -452,6 +465,7 @@ initGestures({
   onPalmDown: () => {},
   onSpiderMan: (handIdx, active) => {
     if (active) {
+      if (webActive) return; // prevent dual-web from both hands
       // Start aiming
       webActive = true;
       webHandIdx = handIdx;
@@ -472,6 +486,20 @@ initGestures({
       // Clamp web teleport target above floor
       const floorY = WORLDS[currentWorldName]?.camY || 0;
       if (target.y < floorY) target.y = floorY;
+
+      // Check if path is clear
+      const flyDir = new THREE.Vector3().subVectors(target, camera.position).normalize();
+      const flyDist = camera.position.distanceTo(target);
+      if (!canMove(camera.position, flyDir, flyDist)) {
+        // Find the wall hit point and stop there
+        raycaster.set(camera.position, flyDir);
+        raycaster.far = flyDist;
+        const hits = raycaster.intersectObjects(colliderMeshes, false);
+        if (hits.length > 0) {
+          target.copy(hits[0].point);
+          target.addScaledVector(flyDir, -0.5); // back off 0.5 from wall
+        }
+      }
 
       // Look direction = forward from new position (maintain current look direction roughly)
       const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position).normalize();

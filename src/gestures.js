@@ -22,7 +22,7 @@
 
 // ── Constants ───────────────────────────────────────────────
 
-const HAND_SMOOTH = 0.15;   // EMA alpha for hands
+const HAND_SMOOTH = 0.25;   // EMA alpha for hands
 // HEAD_SMOOTH removed — main.js handles all head smoothing via lerp
 const FIST_HOLD_MS = 300;
 const FIST_COOLDOWN_MS = 1500;
@@ -50,6 +50,7 @@ const handStates = [
     fistStart: 0,
     fistCooldown: 0,
     spiderManActive: false,
+    spiderManStart: 0,
   },
   // index 1 = Left hand
   {
@@ -61,6 +62,7 @@ const handStates = [
     palmDownActive: false,
     palmCooldown: 0,
     spiderManActive: false,
+    spiderManStart: 0,
   },
 ];
 
@@ -71,6 +73,7 @@ const headState = {
   calibrated: false,
   baseX: 0.5,
   baseY: 0.5,
+  lostTime: 0,
 };
 
 // ── Callbacks ───────────────────────────────────────────────
@@ -118,8 +121,10 @@ function processHands(results) {
     handStates[1].gestureLabel = '';
     handStates[0].fistPending = false;
     handStates[0].spiderManActive = false;
+    handStates[0].spiderManStart = 0;
     handStates[1].palmDownActive = false;
     handStates[1].spiderManActive = false;
+    handStates[1].spiderManStart = 0;
     drawOverlay();
     if (cbHandsUpdate) cbHandsUpdate(handStates, headState);
     return;
@@ -213,22 +218,32 @@ function processRightHand(lm, s, now) {
     s.fistPending = false;
   }
 
-  // Spider-Man pose: index(8) + pinky(20) extended, middle(12) + ring(16) curled
-  const isSpiderMan = lm[8].y < wristY && lm[20].y < wristY && lm[12].y > wristY && lm[16].y > wristY;
+  // Spider-Man pose: index + pinky extended, middle + ring curled, with X-spacing check
+  const isSpiderMan =
+    lm[8].y < wristY - 0.03 &&   // index clearly above wrist
+    lm[20].y < wristY - 0.03 &&  // pinky clearly above wrist
+    lm[12].y > wristY + 0.03 &&  // middle clearly below wrist
+    lm[16].y > wristY + 0.03 &&  // ring clearly below wrist
+    Math.abs(lm[8].x - lm[20].x) > 0.06; // index and pinky spread apart
 
   if (isSpiderMan && !s.spiderManActive) {
-    s.spiderManActive = true;
-    s.gestureLabel = 'WEB!';
-    if (cbSpiderMan) cbSpiderMan(0, true);
-  } else if (!isSpiderMan && s.spiderManActive) {
-    s.spiderManActive = false;
-    s.gestureLabel = '';
-    if (cbSpiderMan) cbSpiderMan(0, false);
+    if (!s.spiderManStart) s.spiderManStart = now;
+    // Require 150ms hold before activating
+    if (now - s.spiderManStart >= 150) {
+      s.spiderManActive = true;
+      s.gestureLabel = 'WEB!';
+      if (cbSpiderMan) cbSpiderMan(0, true);
+    }
+  } else if (!isSpiderMan) {
+    s.spiderManStart = 0;
+    if (s.spiderManActive) {
+      s.spiderManActive = false;
+      s.gestureLabel = '';
+      if (cbSpiderMan) cbSpiderMan(0, false);
+    }
   }
 
-  if (s.spiderManActive) {
-    s.gestureLabel = 'WEB!';
-  }
+  if (s.spiderManActive) s.gestureLabel = 'WEB!';
 }
 
 function processLeftHand(lm, s, now) {
@@ -257,23 +272,33 @@ function processLeftHand(lm, s, now) {
     s.gestureLabel = 'WAYPOINT';
   }
 
-  // Spider-Man pose: index(8) + pinky(20) extended, middle(12) + ring(16) curled
+  // Spider-Man pose: index + pinky extended, middle + ring curled, with X-spacing check
   const wristY = lm[0].y;
-  const isSpiderMan = lm[8].y < wristY && lm[20].y < wristY && lm[12].y > wristY && lm[16].y > wristY;
+  const isSpiderMan =
+    lm[8].y < wristY - 0.03 &&   // index clearly above wrist
+    lm[20].y < wristY - 0.03 &&  // pinky clearly above wrist
+    lm[12].y > wristY + 0.03 &&  // middle clearly below wrist
+    lm[16].y > wristY + 0.03 &&  // ring clearly below wrist
+    Math.abs(lm[8].x - lm[20].x) > 0.06; // index and pinky spread apart
 
   if (isSpiderMan && !s.spiderManActive) {
-    s.spiderManActive = true;
-    s.gestureLabel = 'WEB!';
-    if (cbSpiderMan) cbSpiderMan(1, true);
-  } else if (!isSpiderMan && s.spiderManActive) {
-    s.spiderManActive = false;
-    s.gestureLabel = '';
-    if (cbSpiderMan) cbSpiderMan(1, false);
+    if (!s.spiderManStart) s.spiderManStart = now;
+    // Require 150ms hold before activating
+    if (now - s.spiderManStart >= 150) {
+      s.spiderManActive = true;
+      s.gestureLabel = 'WEB!';
+      if (cbSpiderMan) cbSpiderMan(1, true);
+    }
+  } else if (!isSpiderMan) {
+    s.spiderManStart = 0;
+    if (s.spiderManActive) {
+      s.spiderManActive = false;
+      s.gestureLabel = '';
+      if (cbSpiderMan) cbSpiderMan(1, false);
+    }
   }
 
-  if (s.spiderManActive) {
-    s.gestureLabel = 'WEB!';
-  }
+  if (s.spiderManActive) s.gestureLabel = 'WEB!';
 }
 
 // ── Face Processing ─────────────────────────────────────────
@@ -282,11 +307,16 @@ function processFace(results) {
   if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
     headState.detected = false;
     latestFaceLandmarks = null;
-    // DON'T reset calibration here — face drops for single frames often
-    // Just send zero so the view returns to center smoothly
+    if (!headState.lostTime) headState.lostTime = performance.now();
+    // Auto-recalibrate if lost for >500ms
+    if (performance.now() - headState.lostTime > 500) {
+      headState.calibrated = false;
+    }
     if (cbHeadLook) cbHeadLook(0, 0);
     return;
   }
+  // When face detected, clear lost timer:
+  headState.lostTime = 0;
 
   const lm = results.multiFaceLandmarks[0];
   latestFaceLandmarks = lm;
