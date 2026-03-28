@@ -125,9 +125,9 @@ function switchWorld(name) {
 
   scene.background = new THREE.Color(w.sky);
 
-  // Camera at the world's Y height, slightly back
-  camera.position.set(0, w.camY, 1);
-  controls.target.set(0, w.camY, 0);
+  // Camera slightly below eye height, further back for wider view
+  camera.position.set(0, w.camY - 0.2, 2);
+  controls.target.set(0, w.camY - 0.2, 0);
 
   // Reset gesture state
   headYaw = 0; headPitch = 0; handPull = 0;
@@ -180,8 +180,8 @@ createHandMeshes(1);
 // ── Spider-Man Web ───────────────────────────────────────────
 
 // Pointer dot — glowing sphere showing where web will land
-const pointerGeo = new THREE.SphereGeometry(0.04, 16, 16);
-const pointerMat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0.9 });
+const pointerGeo = new THREE.SphereGeometry(0.08, 16, 16);
+const pointerMat = new THREE.MeshBasicMaterial({ color: 0xff2222, transparent: true, opacity: 1.0 });
 const pointerDot = new THREE.Mesh(pointerGeo, pointerMat);
 pointerDot.visible = false;
 scene.add(pointerDot);
@@ -192,17 +192,17 @@ const webMainGeo = new THREE.BufferGeometry();
 const webMainPositions = new Float32Array(WEB_SEGMENTS * 3);
 webMainGeo.setAttribute('position', new THREE.BufferAttribute(webMainPositions, 3));
 const webMainLine = new THREE.Line(webMainGeo, new THREE.LineBasicMaterial({
-  color: 0xffffff, transparent: true, opacity: 0.8
+  color: 0xffffff, transparent: true, opacity: 1.0
 }));
 webMainLine.visible = false;
 scene.add(webMainLine);
 
-// Secondary strands
-let webTube = null; // kept for cleanup compatibility
+// Secondary strands — brighter, more visible
+let webTube = null;
 const webStrands = [];
-for (let i = 0; i < 2; i++) {
+for (let i = 0; i < 3; i++) {
   const geo = new THREE.BufferGeometry();
-  const mat = new THREE.LineBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.3 });
+  const mat = new THREE.LineBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.5 });
   const line = new THREE.Line(geo, mat);
   line.visible = false;
   scene.add(line);
@@ -212,6 +212,8 @@ for (let i = 0; i < 2; i++) {
 let webActive = false;
 let webHandIdx = 0;
 let webPointerTarget = new THREE.Vector3();
+let webShootStart = 0; // timestamp when web started
+const WEB_SHOOT_DURATION = 300; // ms for web to reach target
 
 function updateWeb() {
   if (!webActive) {
@@ -237,22 +239,31 @@ function updateWeb() {
     webPointerTarget.copy(camera.position).addScaledVector(dir, 15.0);
   }
 
-  // Pointer dot
-  pointerDot.position.copy(webPointerTarget);
-  pointerDot.visible = true;
-  const t = performance.now() * 0.005;
-  pointerMat.opacity = 0.6 + Math.sin(t) * 0.3;
-  pointerDot.scale.setScalar(0.8 + Math.sin(t * 2) * 0.2);
+  // Shoot animation — web extends from hand to target over WEB_SHOOT_DURATION
+  const shootElapsed = performance.now() - webShootStart;
+  const shootProgress = Math.min(shootElapsed / WEB_SHOOT_DURATION, 1.0);
+  // Ease out — fast start, slow arrival
+  const shootT = 1 - Math.pow(1 - shootProgress, 3);
 
-  // Main web — update multi-segment line along bezier curve
-  const mid = handPos.clone().lerp(webPointerTarget, 0.5);
-  mid.y -= 0.08; // slight sag
-  const curve = new THREE.QuadraticBezierCurve3(handPos, mid, webPointerTarget);
+  // Current web endpoint (animated from hand toward target)
+  const currentEnd = handPos.clone().lerp(webPointerTarget, shootT);
+
+  // Pointer dot — only visible once web reaches target
+  pointerDot.position.copy(webPointerTarget);
+  pointerDot.visible = shootProgress > 0.8;
+  const t = performance.now() * 0.005;
+  pointerMat.opacity = 0.7 + Math.sin(t) * 0.3;
+  pointerDot.scale.setScalar(1.0 + Math.sin(t * 2) * 0.3);
+
+  // Main web line — extends with animation
+  const mid = handPos.clone().lerp(currentEnd, 0.5);
+  mid.y -= 0.06 * shootT; // sag grows as web extends
+  const curve = new THREE.QuadraticBezierCurve3(handPos, mid, currentEnd);
   const pts = curve.getPoints(WEB_SEGMENTS - 1);
   const pos = webMainGeo.attributes.position.array;
   for (let i = 0; i < WEB_SEGMENTS; i++) {
     const p = pts[i];
-    const wobble = Math.sin(i / WEB_SEGMENTS * Math.PI) * Math.sin(t * 4 + i) * 0.01;
+    const wobble = Math.sin(i / WEB_SEGMENTS * Math.PI) * Math.sin(t * 5 + i * 0.5) * 0.015 * shootT;
     pos[i*3] = p.x + wobble;
     pos[i*3+1] = p.y + wobble;
     pos[i*3+2] = p.z;
@@ -260,12 +271,13 @@ function updateWeb() {
   webMainGeo.attributes.position.needsUpdate = true;
   webMainLine.visible = true;
 
-  // Secondary strands
+  // Secondary strands — extend with main line
   webStrands.forEach((strand, si) => {
-    const offset = 0.02 * (si === 0 ? 1 : -1);
+    const offsets = [0.025, -0.025, 0.015];
+    const offset = offsets[si] || 0;
     const midOff = mid.clone();
-    midOff.x += offset; midOff.z += offset;
-    const c2 = new THREE.QuadraticBezierCurve3(handPos, midOff, webPointerTarget);
+    midOff.x += offset; midOff.z += offset * 0.7;
+    const c2 = new THREE.QuadraticBezierCurve3(handPos, midOff, currentEnd);
     const strandPts = c2.getPoints(16);
     strand.geometry.dispose();
     strand.geometry = new THREE.BufferGeometry().setFromPoints(strandPts);
@@ -317,36 +329,27 @@ function canMove(origin, direction, distance) {
 }
 
 function applyGestures(dt) {
-  // Smooth — 0.15 = responsive without jitter
-  sYaw += (headYaw - sYaw) * 0.15;
-  sPitch += (headPitch - sPitch) * 0.15;
-  sPull += (handPull - sPull) * 0.12;
+  // Smooth — lower = smoother
+  sYaw += (headYaw - sYaw) * 0.08;
+  sPitch += (headPitch - sPitch) * 0.08;
+  sPull += (handPull - sPull) * 0.08;
 
-  // HEAD → directly set orbit angle
-  if (Math.abs(headYaw) > 0.01 || Math.abs(headPitch) > 0.01) {
-    if (!headActive) {
-      baseAzimuth = controls.getAzimuthalAngle();
-      basePolar = controls.getPolarAngle();
-      headActive = true;
-    }
-
-    const targetAzimuth = baseAzimuth - sYaw * 1.2;  // head right = orbit right
-    const targetPolar = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle,
-      basePolar + sPitch * 0.6));  // head down = look down
-
-    const dist = camera.position.distanceTo(controls.target);
-    const t = controls.target;
-    camera.position.set(
-      t.x + dist * Math.sin(targetPolar) * Math.sin(targetAzimuth),
-      t.y + dist * Math.cos(targetPolar),
-      t.z + dist * Math.sin(targetPolar) * Math.cos(targetAzimuth)
-    );
-  } else if (headActive && Math.abs(sYaw) < 0.01 && Math.abs(sPitch) < 0.01) {
-    // Head returned to center — update base to current angle
-    baseAzimuth = controls.getAzimuthalAngle();
-    basePolar = controls.getPolarAngle();
-    headActive = false;
+  // HEAD → accumulate yaw for sustained turns, but with high threshold
+  // sYaw must be significant (head clearly turned) before rotation starts
+  if (Math.abs(sYaw) > 0.15) {
+    baseAzimuth -= sYaw * dt * 1.5;
   }
+  // Pitch — tilt view gently, don't accumulate (position-based)
+  const targetPolar = Math.max(controls.minPolarAngle, Math.min(controls.maxPolarAngle,
+    Math.PI / 2 + sPitch * 0.4));
+
+  const dist = camera.position.distanceTo(controls.target);
+  const ct = controls.target;
+  camera.position.set(
+    ct.x + dist * Math.sin(targetPolar) * Math.sin(baseAzimuth),
+    ct.y + dist * Math.cos(targetPolar),
+    ct.z + dist * Math.sin(targetPolar) * Math.cos(baseAzimuth)
+  );
 
   // HAND → walk forward/backward (move both camera + target along look direction)
   if (Math.abs(sPull) > 0.03 && !flyAnim) {
@@ -452,6 +455,7 @@ initGestures({
       // Start aiming
       webActive = true;
       webHandIdx = handIdx;
+      webShootStart = performance.now();
       showToast('WEB!');
     } else {
       // Released! Fly to EXACTLY where the pointer is — INCLUDING Y (go up buildings!)
@@ -473,7 +477,7 @@ initGestures({
       const lookDir = new THREE.Vector3().subVectors(controls.target, camera.position).normalize();
       const lookTarget = target.clone().add(lookDir);
 
-      flyTo([target.x, target.y, target.z], [lookTarget.x, lookTarget.y, lookTarget.z], 0.6);
+      flyTo([target.x, target.y, target.z], [lookTarget.x, lookTarget.y, lookTarget.z], 1.5);
       showToast('THWIP!');
     }
   },
