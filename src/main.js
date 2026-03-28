@@ -138,6 +138,73 @@ function createHandMeshes(idx) {
 createHandMeshes(0);
 createHandMeshes(1);
 
+// ── Spider-Man Web ───────────────────────────────────────────
+
+// Pointer dot — glowing sphere showing where web will land
+const pointerGeo = new THREE.SphereGeometry(0.04, 16, 16);
+const pointerMat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0.9 });
+const pointerDot = new THREE.Mesh(pointerGeo, pointerMat);
+pointerDot.visible = false;
+scene.add(pointerDot);
+
+// Web line — from hand to pointer
+const webLineGeo = new THREE.BufferGeometry();
+const webLinePositions = new Float32Array(20 * 3); // 20 segments for wavy line
+webLineGeo.setAttribute('position', new THREE.BufferAttribute(webLinePositions, 3));
+const webLineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
+const webLine = new THREE.Line(webLineGeo, webLineMat);
+webLine.visible = false;
+scene.add(webLine);
+
+let webActive = false;
+let webHandIdx = 0;
+let webPointerTarget = new THREE.Vector3();
+
+function updateWeb() {
+  if (!webActive) {
+    pointerDot.visible = false;
+    webLine.visible = false;
+    return;
+  }
+
+  // Get hand's index fingertip position in 3D
+  const tipJoint = handJoints[webHandIdx][8]; // index fingertip
+  if (!tipJoint.visible) return;
+
+  const handPos = tipJoint.position.clone();
+
+  // Calculate pointer target: shoot forward from camera through hand position
+  const dir = new THREE.Vector3();
+  dir.subVectors(handPos, camera.position).normalize();
+  webPointerTarget.copy(camera.position).addScaledVector(dir, 5.0); // 5 units ahead
+
+  // Position the pointer dot
+  pointerDot.position.copy(webPointerTarget);
+  pointerDot.visible = true;
+
+  // Pulse the pointer
+  const t = performance.now() * 0.005;
+  pointerMat.opacity = 0.6 + Math.sin(t) * 0.3;
+  pointerDot.scale.setScalar(0.8 + Math.sin(t * 2) * 0.2);
+
+  // Update web line with slight wave
+  const positions = webLineGeo.attributes.position.array;
+  const segments = 20;
+  for (let i = 0; i < segments; i++) {
+    const frac = i / (segments - 1);
+    const px = handPos.x + (webPointerTarget.x - handPos.x) * frac;
+    const py = handPos.y + (webPointerTarget.y - handPos.y) * frac;
+    const pz = handPos.z + (webPointerTarget.z - handPos.z) * frac;
+    // Add sine wave wobble (stronger in middle, zero at ends)
+    const wobble = Math.sin(frac * Math.PI) * Math.sin(t * 3 + frac * 10) * 0.02;
+    positions[i * 3] = px + wobble;
+    positions[i * 3 + 1] = py + wobble;
+    positions[i * 3 + 2] = pz;
+  }
+  webLineGeo.attributes.position.needsUpdate = true;
+  webLine.visible = true;
+}
+
 function updateHandIn3D(idx, landmarks) {
   const joints = handJoints[idx];
   const lines = handLines[idx];
@@ -219,13 +286,42 @@ function applyGestures(dt) {
   }
 }
 
+// ── Fly-To (smooth camera teleport) ─────────────────────────
+
+let flyAnim = null;
+function flyTo(posArr, lookArr, duration = 1.0) {
+  const startPos = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const endPos = new THREE.Vector3(posArr[0], posArr[1], posArr[2]);
+  const endTarget = new THREE.Vector3(lookArr[0], lookArr[1], lookArr[2]);
+  const startTime = performance.now();
+  flyAnim = { startPos, startTarget, endPos, endTarget, startTime, duration: duration * 1000 };
+}
+
+function tickFly() {
+  if (!flyAnim) return;
+  const elapsed = performance.now() - flyAnim.startTime;
+  let t = Math.min(elapsed / flyAnim.duration, 1.0);
+  // Smooth ease-in-out
+  t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  camera.position.lerpVectors(flyAnim.startPos, flyAnim.endPos, t);
+  controls.target.lerpVectors(flyAnim.startTarget, flyAnim.endTarget, t);
+  if (t >= 1.0) {
+    baseAzimuth = controls.getAzimuthalAngle();
+    basePolar = controls.getPolarAngle();
+    flyAnim = null;
+  }
+}
+
 // ── Render ───────────────────────────────────────────────────
 
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   applyGestures(clock.getDelta());
+  tickFly();
   controls.update();
+  updateWeb();
   renderer.render(scene, camera);
 }
 animate();
@@ -251,6 +347,30 @@ initGestures({
   onLeftHand: () => {},
   onFist: nextWorld,
   onPalmDown: () => {},
+  onSpiderMan: (handIdx, active) => {
+    if (active) {
+      // Start aiming
+      webActive = true;
+      webHandIdx = handIdx;
+      showToast('WEB!');
+    } else {
+      // Released! Teleport to pointer location
+      webActive = false;
+      pointerDot.visible = false;
+      webLine.visible = false;
+
+      // Fly camera to the web target
+      const target = webPointerTarget.clone();
+      // Keep the same Y height (don't fly up/down)
+      target.y = camera.position.y;
+      const lookTarget = target.clone();
+      lookTarget.z -= 1; // look forward from new position
+
+      // Use a short smooth flight
+      flyTo([target.x, target.y, target.z], [lookTarget.x, lookTarget.y, lookTarget.z], 0.8);
+      showToast('THWIP!');
+    }
+  },
   onHandsUpdate: (states) => {
     updateHandIn3D(0, states[0].landmarks);
     updateHandIn3D(1, states[1].landmarks);

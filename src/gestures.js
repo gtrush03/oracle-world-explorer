@@ -49,6 +49,7 @@ const handStates = [
     fistPending: false,
     fistStart: 0,
     fistCooldown: 0,
+    spiderManActive: false,
   },
   // index 1 = Left hand
   {
@@ -59,6 +60,7 @@ const handStates = [
     gestureLabel: '',
     palmDownActive: false,
     palmCooldown: 0,
+    spiderManActive: false,
   },
 ];
 
@@ -78,6 +80,7 @@ let cbRightHand = null;    // (pullValue)
 let cbLeftHand = null;     // (panX, panY)
 let cbFist = null;         // ()
 let cbPalmDown = null;     // ()
+let cbSpiderMan = null;    // (handIdx, active)
 let cbHandsUpdate = null;  // (handStates, headState)
 
 // ── DOM / instances ─────────────────────────────────────────
@@ -114,7 +117,9 @@ function processHands(results) {
     handStates[0].gestureLabel = '';
     handStates[1].gestureLabel = '';
     handStates[0].fistPending = false;
+    handStates[0].spiderManActive = false;
     handStates[1].palmDownActive = false;
+    handStates[1].spiderManActive = false;
     drawOverlay();
     if (cbHandsUpdate) cbHandsUpdate(handStates, headState);
     return;
@@ -207,6 +212,23 @@ function processRightHand(lm, s, now) {
   } else {
     s.fistPending = false;
   }
+
+  // Spider-Man pose: index(8) + pinky(20) extended, middle(12) + ring(16) curled
+  const isSpiderMan = lm[8].y < wristY && lm[20].y < wristY && lm[12].y > wristY && lm[16].y > wristY;
+
+  if (isSpiderMan && !s.spiderManActive) {
+    s.spiderManActive = true;
+    s.gestureLabel = 'WEB!';
+    if (cbSpiderMan) cbSpiderMan(0, true);
+  } else if (!isSpiderMan && s.spiderManActive) {
+    s.spiderManActive = false;
+    s.gestureLabel = '';
+    if (cbSpiderMan) cbSpiderMan(0, false);
+  }
+
+  if (s.spiderManActive) {
+    s.gestureLabel = 'WEB!';
+  }
 }
 
 function processLeftHand(lm, s, now) {
@@ -233,6 +255,24 @@ function processLeftHand(lm, s, now) {
 
   if (s.palmDownActive) {
     s.gestureLabel = 'WAYPOINT';
+  }
+
+  // Spider-Man pose: index(8) + pinky(20) extended, middle(12) + ring(16) curled
+  const wristY = lm[0].y;
+  const isSpiderMan = lm[8].y < wristY && lm[20].y < wristY && lm[12].y > wristY && lm[16].y > wristY;
+
+  if (isSpiderMan && !s.spiderManActive) {
+    s.spiderManActive = true;
+    s.gestureLabel = 'WEB!';
+    if (cbSpiderMan) cbSpiderMan(1, true);
+  } else if (!isSpiderMan && s.spiderManActive) {
+    s.spiderManActive = false;
+    s.gestureLabel = '';
+    if (cbSpiderMan) cbSpiderMan(1, false);
+  }
+
+  if (s.spiderManActive) {
+    s.gestureLabel = 'WEB!';
   }
 }
 
@@ -388,7 +428,7 @@ function drawOverlay() {
 
     // Gesture label at wrist
     camCtx.font = '8px monospace';
-    camCtx.fillStyle = `rgba(${color}, 0.8)`;
+    camCtx.fillStyle = s.gestureLabel === 'WEB!' ? 'rgba(255, 50, 50, 0.95)' : `rgba(${color}, 0.8)`;
     camCtx.fillText(s.gestureLabel, (1 - lm[0].x) * w - 20, lm[0].y * h - 8);
   }
 }
@@ -401,6 +441,7 @@ export function initGestures(cb) {
   cbLeftHand = cb.onLeftHand || null;
   cbFist = cb.onFist || null;
   cbPalmDown = cb.onPalmDown || null;
+  cbSpiderMan = cb.onSpiderMan || null;
   cbHandsUpdate = cb.onHandsUpdate || null;
 }
 
