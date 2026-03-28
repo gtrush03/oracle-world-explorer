@@ -272,32 +272,8 @@ function processLeftHand(lm, s, now) {
     s.gestureLabel = 'WAYPOINT';
   }
 
-  // Spider-Man pose (left hand) — same loose detection as right hand
-  const wristY2 = lm[0].y;
-  const isSpiderManL =
-    lm[8].y < wristY2 &&
-    lm[20].y < wristY2 &&
-    lm[12].y > wristY2 &&
-    lm[16].y > wristY2;
-
-  if (isSpiderManL && !s.spiderManActive) {
-    if (!s.spiderManStart) s.spiderManStart = now;
-    const holdP = Math.min((now - s.spiderManStart) / 100, 1.0);
-    s.gestureLabel = holdP < 1 ? 'CHARGING...' : 'WEB!';
-    if (holdP >= 1.0) {
-      s.spiderManActive = true;
-      if (cbSpiderMan) cbSpiderMan(1, true);
-    }
-  } else if (!isSpiderManL) {
-    s.spiderManStart = 0;
-    if (s.spiderManActive) {
-      s.spiderManActive = false;
-      s.gestureLabel = '';
-      if (cbSpiderMan) cbSpiderMan(1, false);
-    }
-  }
-
-  if (s.spiderManActive) s.gestureLabel = 'WEB!';
+  // Left hand: NO spider-man. Instead, X position = orbit rotation
+  // Already handled by cbLeftHand(px, py) above
 }
 
 // ── Face Processing ─────────────────────────────────────────

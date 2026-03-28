@@ -320,8 +320,8 @@ function updateHandIn3D(idx, landmarks) {
 // Head DIRECTLY maps to view angle — realtime POV matching
 // No accumulation, no velocity. Head position = camera angle.
 
-let headYaw = 0, headPitch = 0, headRoll = 0, handPull = 0;
-let sYaw = 0, sPitch = 0, sRoll = 0, sPull = 0;
+let headYaw = 0, headPitch = 0, headRoll = 0, handPull = 0, leftHandX = 0;
+let sYaw = 0, sPitch = 0, sRoll = 0, sPull = 0, sLeftX = 0;
 
 // Head parallax offset — applied during render, removed after
 let headOffX = 0, headOffY = 0;
@@ -340,10 +340,20 @@ function applyGestures(dt) {
   sPitch += (headPitch - sPitch) * 0.15;
   sRoll += (headRoll - sRoll) * 0.12;
   sPull += (handPull - sPull) * 0.12;
+  sLeftX += (leftHandX - sLeftX) * 0.1;
 
   // Dead zone
   if (Math.abs(sYaw) < 0.02) sYaw = 0;
   if (Math.abs(sPitch) < 0.02) sPitch = 0;
+  if (Math.abs(sLeftX) < 0.05) sLeftX = 0;
+
+  // LEFT HAND → orbit rotation (drag to look around)
+  if (Math.abs(sLeftX) > 0.05) {
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = sLeftX * 8;
+  } else {
+    controls.autoRotate = false;
+  }
 
   // HEAD = small parallax offset (NOT rotation, NOT orbit)
   // Just shift the camera position slightly based on head, like looking through a window
@@ -482,7 +492,7 @@ function showToast(t) { const el = document.getElementById('toast'); if (!el) re
 initGestures({
   onHeadLook: (yaw, pitch, roll) => { headYaw = yaw; headPitch = pitch; headRoll = roll || 0; },
   onRightHand: (pull) => { handPull = pull; },
-  onLeftHand: () => {},
+  onLeftHand: (px, py) => { leftHandX = px; },
   onFist: nextWorld,
   onPalmDown: () => {},
   onSpiderMan: (handIdx, active) => {
@@ -535,6 +545,7 @@ initGestures({
     updateHandIn3D(0, states[0].landmarks);
     updateHandIn3D(1, states[1].landmarks);
     if (!states[0].landmarks) handPull = 0;
+    if (!states[1].landmarks) leftHandX = 0;
     const el = document.getElementById('gesture-label');
     if (!el) return;
     const p = [];
