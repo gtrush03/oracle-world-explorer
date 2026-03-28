@@ -454,8 +454,8 @@ function animate() {
   camera.position.y += headOffY;
   const savedRotX = camera.rotation.x;
   const savedRotZ = camera.rotation.z;
-  camera.rotation.x += sPitch * 0.15;  // head up/down = camera tilts up/down
-  camera.rotation.z = -sRoll * 0.6;    // head tilt = camera rolls
+  camera.rotation.x -= sPitch * 0.12;  // look up = camera tilts up (reversed)
+  camera.rotation.z = -sRoll * 0.15;   // minimal roll for realism
   renderer.render(scene, camera);
   camera.position.x -= headOffX;
   camera.position.y -= headOffY;
